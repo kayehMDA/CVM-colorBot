@@ -774,5 +774,10 @@ if __name__ == "__main__":
     print("[Main] Application initialized with configuration")
     print(f"[Main] Current settings - Aim: {config.enableaim}, Mode: {config.mode}, FOV: {config.fovsize}")
     
+    # Print version info
+    from src.utils.updater import get_update_checker
+    updater = get_update_checker()
+    print(f"[Main] Current version: v{updater.get_current_version()}")
+    
     app.protocol("WM_DELETE_WINDOW", app._on_close)
     app.mainloop()

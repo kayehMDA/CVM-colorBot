@@ -12,6 +12,7 @@ from src.utils.config import config
 from src.capture.capture_service import CaptureService
 from src.utils.mouse_input import MouseInputMonitor
 from src.utils.debug_logger import get_recent_logs, clear_logs, get_log_count
+from src.utils.updater import get_update_checker
 
 # --- 風格配置 (Ultra Minimalist) ---
 COLOR_BG = "#121212"          # 統一深灰背景
@@ -62,6 +63,9 @@ class ViewerApp(ctk.CTk):
         # --- 滑鼠輸入監控 ---
         self.mouse_input_monitor = MouseInputMonitor()
         
+        # --- Update Checker ---
+        self.update_checker = get_update_checker()
+        
         # --- Debug tab 狀態變量（需要在 __init__ 中初始化以保持狀態） ---
         self.debug_mouse_input_var = tk.BooleanVar(value=False)
         
@@ -91,6 +95,9 @@ class ViewerApp(ctk.CTk):
         self.after(300, self._update_performance_stats)  # 性能統計更新
         self.after(50, self._update_mouse_input_debug)  # 滑鼠輸入調試更新
         self.after(100, self._update_debug_log)  # Debug 日誌更新
+        
+        # Check for updates after UI is ready (delay 2 seconds)
+        self.after(2000, self._check_for_updates)
 
     def _build_layout(self):
         """構建佈局：無明顯邊界的側邊欄 + 內容區"""
@@ -114,14 +121,30 @@ class ViewerApp(ctk.CTk):
         self.title_bar = ctk.CTkFrame(self, height=30, fg_color=COLOR_BG, corner_radius=0)
         self.title_bar.grid(row=0, column=0, columnspan=2, sticky="ew")
         
-        # 僅顯示一個小的標識
+        # Title and version
+        title_container = ctk.CTkFrame(self.title_bar, fg_color="transparent")
+        title_container.pack(side="left", padx=20)
+        
         title_lbl = ctk.CTkLabel(
-            self.title_bar, 
+            title_container, 
             text="CVM colorBot", 
             font=("Roboto", 10, "bold"),
             text_color=COLOR_TEXT_DIM
         )
-        title_lbl.pack(side="left", padx=20)
+        title_lbl.pack(side="left")
+        
+        # Version label
+        current_version = self.update_checker.get_current_version()
+        self.version_lbl = ctk.CTkLabel(
+            title_container,
+            text=f"v{current_version}",
+            font=("Roboto", 9),
+            text_color=COLOR_TEXT_DIM
+        )
+        self.version_lbl.pack(side="left", padx=(10, 0))
+        
+        # Update button (only show if update available)
+        self.update_btn = None
         
         # 關閉按鈕 (純文字)
         close_btn = ctk.CTkButton(
@@ -2565,3 +2588,16 @@ class SettingsWindow(ctk.CTkToplevel):
         # 這樣可以確保如果用戶再次打開設置視窗，會看到原始值
         print("[Settings] Cancelled - no changes saved, restoring original settings")
         self.destroy()
+    
+    def _check_for_updates(self):
+        """Check for updates in background"""
+        try:
+            has_update, latest_version, update_info = self.update_checker.check_update()
+            if has_update:
+                self._show_update_dialog(latest_version, update_info)
+        except Exception as e:
+            print(f"[Update] Failed to check for updates: {e}")
+    
+    def _show_update_dialog(self, latest_version, update_info):
+        """Show update dialog with update information"""
+        UpdateDialog(self, latest_version, update_info)
