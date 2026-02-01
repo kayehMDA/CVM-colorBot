@@ -780,4 +780,8 @@ if __name__ == "__main__":
     print(f"[Main] Current version: v{updater.get_current_version()}")
     
     app.protocol("WM_DELETE_WINDOW", app._on_close)
+    
+    # Schedule update check after UI is ready (2 seconds delay)
+    app.after(2000, app._check_for_updates)
+    
     app.mainloop()

@@ -8,6 +8,7 @@ import os
 import json
 import cv2
 from PIL import Image
+from functools import partial
 
 from src.utils.config import config
 from src.capture.capture_service import CaptureService
@@ -96,9 +97,6 @@ class ViewerApp(ctk.CTk):
         self.after(300, self._update_performance_stats)  # 性能統計更新
         self.after(50, self._update_mouse_input_debug)  # 滑鼠輸入調試更新
         self.after(100, self._update_debug_log)  # Debug 日誌更新
-        
-        # Check for updates after UI is ready (delay 2 seconds)
-        self.after(2000, lambda: self._check_for_updates())
 
     def _build_layout(self):
         """構建佈局：無明顯邊界的側邊欄 + 內容區"""
@@ -2377,6 +2375,19 @@ class ViewerApp(ctk.CTk):
             "mask_side5_button": "Side 5 (S5)"
         }
         print(f"[Config] Button Mask - {button_names.get(key, key)}: {value}")
+    
+    def _check_for_updates(self):
+        """Check for updates in background"""
+        try:
+            has_update, latest_version, update_info = self.update_checker.check_update()
+            if has_update:
+                self._show_update_dialog(latest_version, update_info)
+        except Exception as e:
+            print(f"[Update] Failed to check for updates: {e}")
+    
+    def _show_update_dialog(self, latest_version, update_info):
+        """Show update dialog with update information"""
+        UpdateDialog(self, latest_version, update_info)
 
 
 class SettingsWindow(ctk.CTkToplevel):
@@ -2610,16 +2621,3 @@ class SettingsWindow(ctk.CTkToplevel):
         # 這樣可以確保如果用戶再次打開設置視窗，會看到原始值
         print("[Settings] Cancelled - no changes saved, restoring original settings")
         self.destroy()
-    
-    def _check_for_updates(self):
-        """Check for updates in background"""
-        try:
-            has_update, latest_version, update_info = self.update_checker.check_update()
-            if has_update:
-                self._show_update_dialog(latest_version, update_info)
-        except Exception as e:
-            print(f"[Update] Failed to check for updates: {e}")
-    
-    def _show_update_dialog(self, latest_version, update_info):
-        """Show update dialog with update information"""
-        UpdateDialog(self, latest_version, update_info)
