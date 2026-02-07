@@ -280,9 +280,18 @@ class AimTracker:
         center_x = int(frame.xres / 2)
         center_y = int(frame.yres / 2)
         if getattr(config, "enableaim", False):
-            cv2.circle(img, (center_x, center_y), int(getattr(config, "fovsize", self.fovsize)), (255, 255, 255), 2)
-            # Correct: cercle smoothing = normalsmoothFOV
-            cv2.circle(img, (center_x, center_y), int(getattr(config, "normalsmoothfov", self.normalsmoothfov)), (51, 255, 255), 2)
+            mode_main = getattr(config, "mode", "Normal")
+            # 在 NCAF 下不畫原本 FOV 圓，只顯示 NCAF 半徑
+            if mode_main != "NCAF":
+                cv2.circle(img, (center_x, center_y), int(getattr(config, "fovsize", self.fovsize)), (255, 255, 255), 2)
+                # Correct: cercle smoothing = normalsmoothFOV
+                cv2.circle(img, (center_x, center_y), int(getattr(config, "normalsmoothfov", self.normalsmoothfov)), (51, 255, 255), 2)
+            # NCAF Radius 圈 (Main)
+            if mode_main == "NCAF":
+                snap_r = int(getattr(config, "ncaf_snap_radius", 150))
+                near_r = int(getattr(config, "ncaf_near_radius", 50))
+                self._draw_dashed_circle(img, center_x, center_y, snap_r, (180, 180, 180), 1)
+                cv2.circle(img, (center_x, center_y), near_r, (255, 200, 100), 1)
         if getattr(config, "enabletb", False):
             cv2.circle(img, (center_x, center_y), int(getattr(config, "tbfovsize", self.tbfovsize)), (255, 255, 255), 2)
 
@@ -452,18 +461,40 @@ class AimTracker:
         
         # 2. 繪製 FOV 圓圈
         if getattr(config, "enableaim", False):
-            # Main Aimbot FOV
-            main_fov = int(getattr(config, "fovsize", self.fovsize))
-            cv2.circle(img, (center_x, center_y), main_fov, (255, 255, 255), 2)
+            mode_main = getattr(config, "mode", "Normal")
+            # NCAF 時不繪製原本的 FOV 圓
+            if mode_main != "NCAF":
+                # Main Aimbot FOV
+                main_fov = int(getattr(config, "fovsize", self.fovsize))
+                cv2.circle(img, (center_x, center_y), main_fov, (255, 255, 255), 2)
+                
+                # Smooth FOV
+                smooth_fov = int(getattr(config, "normalsmoothfov", self.normalsmoothfov))
+                cv2.circle(img, (center_x, center_y), smooth_fov, (0, 255, 255), 1)
             
-            # Smooth FOV
-            smooth_fov = int(getattr(config, "normalsmoothfov", self.normalsmoothfov))
-            cv2.circle(img, (center_x, center_y), smooth_fov, (0, 255, 255), 1)
+            # NCAF Radius 圈 (Main Aimbot)
+            if mode_main == "NCAF":
+                snap_r = int(getattr(config, "ncaf_snap_radius", 150))
+                near_r = int(getattr(config, "ncaf_near_radius", 50))
+                # Snap Radius (outer) — 虛線風格
+                self._draw_dashed_circle(img, center_x, center_y, snap_r, (180, 180, 180), 1, dash_len=12)
+                # Near Radius (inner) — 淺藍色
+                cv2.circle(img, (center_x, center_y), near_r, (255, 200, 100), 1)
             
             # Sec Aimbot FOV (如果啟用)
             if getattr(config, "enableaim_sec", False):
-                sec_fov = int(getattr(config, "fovsize_sec", self.fovsize_sec))
-                cv2.circle(img, (center_x, center_y), sec_fov, (255, 0, 255), 2)
+                mode_sec = getattr(config, "mode_sec", "Normal")
+                if mode_sec != "NCAF":
+                    sec_fov = int(getattr(config, "fovsize_sec", self.fovsize_sec))
+                    # 與主瞄準不同色，採用青色
+                    cv2.circle(img, (center_x, center_y), sec_fov, (255, 255, 0), 2)
+                
+                # NCAF Radius 圈 (Sec Aimbot)
+                if mode_sec == "NCAF":
+                    snap_r_sec = int(getattr(config, "ncaf_snap_radius_sec", 150))
+                    near_r_sec = int(getattr(config, "ncaf_near_radius_sec", 50))
+                    self._draw_dashed_circle(img, center_x, center_y, snap_r_sec, (200, 100, 200), 1, dash_len=12)
+                    cv2.circle(img, (center_x, center_y), near_r_sec, (200, 150, 255), 1)
         
         # Triggerbot FOV
         if getattr(config, "enabletb", False):
@@ -550,6 +581,27 @@ class AimTracker:
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
         
         return img
+
+    @staticmethod
+    def _draw_dashed_circle(img, cx, cy, radius, color, thickness=1, dash_len=10):
+        """
+        繪製虛線圓圈
+
+        Args:
+            img: BGR 圖像
+            cx, cy: 圓心
+            radius: 半徑 (px)
+            color: BGR 顏色
+            thickness: 線粗
+            dash_len: 每段弧的角度 (度)
+        """
+        import numpy as np
+        if radius <= 0:
+            return
+        for angle_start in range(0, 360, dash_len * 2):
+            angle_end = min(angle_start + dash_len, 360)
+            cv2.ellipse(img, (cx, cy), (radius, radius), 0,
+                        angle_start, angle_end, color, thickness, cv2.LINE_AA)
 
     def _draw_head_bbox(self, img, headx, heady):
         """

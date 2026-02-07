@@ -941,12 +941,6 @@ class ViewerApp(ctk.CTk):
         
         elif current_mode == "NCAF":
             self._add_subtitle_in_frame(sec_params, "NCAF PARAMETERS")
-            self._add_slider_in_frame(sec_params, "Snap Radius (Outer)", "ncaf_snap_radius", 10, 500,
-                                      float(getattr(config, "ncaf_snap_radius", 150)),
-                                      self._on_ncaf_snap_radius_changed)
-            self._add_slider_in_frame(sec_params, "Near Radius (Inner)", "ncaf_near_radius", 5, 400,
-                                      float(getattr(config, "ncaf_near_radius", 50)),
-                                      self._on_ncaf_near_radius_changed)
             self._add_slider_in_frame(sec_params, "Alpha (Speed Curve)", "ncaf_alpha", 0.1, 5.0,
                                       float(getattr(config, "ncaf_alpha", 1.5)),
                                       self._on_ncaf_alpha_changed, is_float=True)
@@ -958,9 +952,12 @@ class ViewerApp(ctk.CTk):
                                       self._on_ncaf_max_step_changed)
             self._add_spacer_in_frame(sec_params)
             self._add_subtitle_in_frame(sec_params, "FOV")
-            self._add_slider_in_frame(sec_params, "FOV Size", "fovsize", 1, 1000,
-                                      float(getattr(config, "fovsize", 300)),
-                                      self._on_fovsize_changed)
+            self._add_slider_in_frame(sec_params, "Snap Radius (Outer)", "ncaf_snap_radius", 10, 500,
+                                      float(getattr(config, "ncaf_snap_radius", 150)),
+                                      self._on_ncaf_snap_radius_changed)
+            self._add_slider_in_frame(sec_params, "Near Radius (Inner)", "ncaf_near_radius", 5, 400,
+                                      float(getattr(config, "ncaf_near_radius", 50)),
+                                      self._on_ncaf_near_radius_changed)
         
         elif current_mode == "WindMouse":
             self._add_subtitle_in_frame(sec_params, "WINDMOUSE PARAMETERS")
@@ -1093,12 +1090,6 @@ class ViewerApp(ctk.CTk):
         
         elif current_mode_sec == "NCAF":
             self._add_subtitle_in_frame(sec_params, "NCAF PARAMETERS")
-            self._add_slider_in_frame(sec_params, "Snap Radius (Outer)", "ncaf_snap_radius_sec", 10, 500,
-                                      float(getattr(config, "ncaf_snap_radius_sec", 150)),
-                                      self._on_ncaf_snap_radius_sec_changed)
-            self._add_slider_in_frame(sec_params, "Near Radius (Inner)", "ncaf_near_radius_sec", 5, 400,
-                                      float(getattr(config, "ncaf_near_radius_sec", 50)),
-                                      self._on_ncaf_near_radius_sec_changed)
             self._add_slider_in_frame(sec_params, "Alpha (Speed Curve)", "ncaf_alpha_sec", 0.1, 5.0,
                                       float(getattr(config, "ncaf_alpha_sec", 1.5)),
                                       self._on_ncaf_alpha_sec_changed, is_float=True)
@@ -1110,9 +1101,12 @@ class ViewerApp(ctk.CTk):
                                       self._on_ncaf_max_step_sec_changed)
             self._add_spacer_in_frame(sec_params)
             self._add_subtitle_in_frame(sec_params, "FOV")
-            self._add_slider_in_frame(sec_params, "FOV Size", "fovsize_sec", 1, 1000,
-                                      float(getattr(config, "fovsize_sec", 150)),
-                                      self._on_fovsize_sec_changed)
+            self._add_slider_in_frame(sec_params, "Snap Radius (Outer)", "ncaf_snap_radius_sec", 10, 500,
+                                      float(getattr(config, "ncaf_snap_radius_sec", 150)),
+                                      self._on_ncaf_snap_radius_sec_changed)
+            self._add_slider_in_frame(sec_params, "Near Radius (Inner)", "ncaf_near_radius_sec", 5, 400,
+                                      float(getattr(config, "ncaf_near_radius_sec", 50)),
+                                      self._on_ncaf_near_radius_sec_changed)
         
         elif current_mode_sec == "WindMouse":
             self._add_subtitle_in_frame(sec_params, "WINDMOUSE PARAMETERS")
@@ -2672,9 +2666,20 @@ class ViewerApp(ctk.CTk):
     # === NCAF Callbacks (Main) ===
     def _on_ncaf_near_radius_changed(self, val):
         config.ncaf_near_radius = val
+        snap = getattr(config, "ncaf_snap_radius", val)
+        # Snap 應大於 Near；若不符則自動往上調整並同步 UI
+        if snap <= val:
+            snap = min(500, val + 1)
+            config.ncaf_snap_radius = snap
+            self._set_slider_value("ncaf_snap_radius", snap)
     
     def _on_ncaf_snap_radius_changed(self, val):
         config.ncaf_snap_radius = val
+        near = getattr(config, "ncaf_near_radius", val)
+        if val <= near:
+            near = max(5, val - 1)
+            config.ncaf_near_radius = near
+            self._set_slider_value("ncaf_near_radius", near)
     
     def _on_ncaf_alpha_changed(self, val):
         config.ncaf_alpha = val
@@ -2688,9 +2693,19 @@ class ViewerApp(ctk.CTk):
     # === NCAF Callbacks (Sec) ===
     def _on_ncaf_near_radius_sec_changed(self, val):
         config.ncaf_near_radius_sec = val
+        snap = getattr(config, "ncaf_snap_radius_sec", val)
+        if snap <= val:
+            snap = min(500, val + 1)
+            config.ncaf_snap_radius_sec = snap
+            self._set_slider_value("ncaf_snap_radius_sec", snap)
     
     def _on_ncaf_snap_radius_sec_changed(self, val):
         config.ncaf_snap_radius_sec = val
+        near = getattr(config, "ncaf_near_radius_sec", val)
+        if val <= near:
+            near = max(5, val - 1)
+            config.ncaf_near_radius_sec = near
+            self._set_slider_value("ncaf_near_radius_sec", near)
     
     def _on_ncaf_alpha_sec_changed(self, val):
         config.ncaf_alpha_sec = val

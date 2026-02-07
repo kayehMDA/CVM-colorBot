@@ -239,4 +239,3 @@ def process_triggerbot(frame, img, model, controller, tbdelay_min, tbdelay_max,
     except Exception as e:
         print("[Triggerbot error]", e)
         return f"ERROR: {str(e)}"
-
