@@ -305,11 +305,10 @@ class CaptureService:
                 # [2, 1, 0] -> B, G, R
                 bgr_img = img[:, :, [2, 1, 0]]
                 
-                # 如果啟用裁切，則應用中心裁切
+                # 如果啟用裁切，則應用中心裁切（正方形）
                 if getattr(global_config, "ndi_fov_enabled", False):
-                    fov_x = int(getattr(global_config, "ndi_fov_x", 320))
-                    fov_y = int(getattr(global_config, "ndi_fov_y", 320))
-                    return self._crop_frame_center(bgr_img, fov_x, fov_y)
+                    fov = int(getattr(global_config, "ndi_fov", 320))
+                    return self._crop_frame_center(bgr_img, fov, fov)
                 
                 return bgr_img
             except Exception as e:
@@ -336,11 +335,10 @@ class CaptureService:
                 if frame.size == 0:
                     return None
                 
-                # 如果啟用裁切，則應用中心裁切
+                # 如果啟用裁切，則應用中心裁切（正方形）
                 if getattr(global_config, "udp_fov_enabled", False):
-                    fov_x = int(getattr(global_config, "udp_fov_x", 320))
-                    fov_y = int(getattr(global_config, "udp_fov_y", 320))
-                    return self._crop_frame_center(frame, fov_x, fov_y)
+                    fov = int(getattr(global_config, "udp_fov", 320))
+                    return self._crop_frame_center(frame, fov, fov)
                     
                 return frame
             except Exception as e:

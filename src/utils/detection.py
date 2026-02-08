@@ -34,6 +34,20 @@ def load_model(model_path=None):
             HSV_MAX = np.array([purple[3], purple[4], purple[5]], dtype=np.uint8)
             print("Loaded HSV for purple")
 
+        elif config.color == "custom":
+            # 使用自訂HSV值
+            HSV_MIN = np.array([
+                getattr(config, "custom_hsv_min_h", 0),
+                getattr(config, "custom_hsv_min_s", 0),
+                getattr(config, "custom_hsv_min_v", 0)
+            ], dtype=np.uint8)
+            HSV_MAX = np.array([
+                getattr(config, "custom_hsv_max_h", 179),
+                getattr(config, "custom_hsv_max_s", 255),
+                getattr(config, "custom_hsv_max_v", 255)
+            ], dtype=np.uint8)
+            print(f"Loaded custom HSV: MIN={HSV_MIN}, MAX={HSV_MAX}")
+
         else:
             raise ValueError(f"Unknown color {config.color}")
 
@@ -61,7 +75,17 @@ def has_color_vertical_line(mask, x, y1, y2):
     return np.any(line > 0)
 
 # ------------------ Fusion de rectangles ------------------
-def merge_close_rects(rects, centers, dist_threshold=250):
+def merge_close_rects(rects, centers, dist_threshold=None):
+    """
+    合併相近的矩形
+    
+    Args:
+        rects: 矩形列表
+        centers: 中心點列表
+        dist_threshold: 距離閾值（如果為 None，則從 config 讀取）
+    """
+    if dist_threshold is None:
+        dist_threshold = getattr(config, "detection_merge_distance", 250)
     merged, merged_centers = [], []
     used = [False] * len(rects)
 
@@ -79,8 +103,16 @@ def merge_close_rects(rects, centers, dist_threshold=250):
             x2, y2, w2, h2 = r2
             cx2, cy2 = c2
 
-            # --- Condition 1 : chevauchement ---
-            if (x1 < x2 + w2 and x1 + w1 > x2) and (y1 < y2 + h2 and y1 + h1 > y2):
+            # --- Condition 1 : chevauchement (重疊) ---
+            overlap = (x1 < x2 + w2 and x1 + w1 > x2) and (y1 < y2 + h2 and y1 + h1 > y2)
+            
+            # --- Condition 2 : distance-based merging (距離合併) ---
+            # 計算兩個矩形中心點之間的距離
+            center_distance = np.sqrt((cx1 - cx2)**2 + (cy1 - cy2)**2)
+            within_distance = center_distance <= dist_threshold
+            
+            # 如果重疊或距離足夠近，則合併
+            if overlap or within_distance:
                 nx, ny = min(nx, x2), min(ny, y2)
                 nw = max(nx + nw, x2 + w2) - nx
                 nh = max(ny + nh, y2 + h2) - ny
@@ -139,7 +171,15 @@ def perform_detection(model, image):
     # Contours et rectangles
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     rects, centers = [], []
+    
+    # 獲取最小輪廓點數配置
+    min_contour_points = getattr(config, "detection_min_contour_points", 5)
+    
     for c in contours:
+        # 過濾：跳過點數太少的輪廓
+        if len(c) < min_contour_points:
+            continue
+            
         x, y, w, h = cv2.boundingRect(c)
         cx, cy = x + w // 2, y + h // 2
 
@@ -150,6 +190,7 @@ def perform_detection(model, image):
         rects.append((x, y, w, h))
         centers.append((cx, cy))
 
+    # 使用 config 中的 merge_distance（不傳遞參數，讓函數從 config 讀取）
     merged_rects, merged_centers = merge_close_rects(rects, centers)
 
     return [{"class": "player", "bbox": r, "confidence": 1.0} for r in merged_rects], mask

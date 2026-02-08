@@ -320,64 +320,115 @@ class ViewerApp(ctk.CTk):
         self._clear_content()
         self._add_title("General")
         
-        self._add_subtitle("CAPTURE CONTROLS")
+        # ── CAPTURE CONTROLS (collapsible) ──
+        sec_capture = self._create_collapsible_section(self.content_frame, "Capture Controls", initially_open=True)
         
         # Capture Method Selection
         self.capture_method_var.set(self.capture.mode)
         # 創建 option menu
-        self.capture_method_option = self._add_option_row("Method", ["NDI", "UDP", "CaptureCard", "MSS"], self._on_capture_method_changed)
+        self.capture_method_option = self._add_option_row_in_frame(sec_capture, "Method", ["NDI", "UDP", "CaptureCard", "MSS"], self._on_capture_method_changed)
         # 顯式設置當前值
         self.capture_method_option.set(self.capture.mode)
         
-        self._add_spacer()
+        self._add_spacer_in_frame(sec_capture)
         
         # Dynamic Capture Content Frame
-        self.capture_content_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.capture_content_frame = ctk.CTkFrame(sec_capture, fg_color="transparent")
         self.capture_content_frame.pack(fill="x", pady=5)
         
         self._update_capture_ui()
 
-        self._add_spacer()
-        self._add_subtitle("SETTINGS")
+        # ── SETTINGS (collapsible) ──
+        sec_settings = self._create_collapsible_section(self.content_frame, "Settings", initially_open=True)
         
         # In-Game Sensitivity (預設 0.235, 範圍 0.1-20)
-        self._add_slider("In-Game Sensitivity", "in_game_sens", 0.1, 20, 
+        self._add_slider_in_frame(sec_settings, "In-Game Sensitivity", "in_game_sens", 0.1, 20, 
                         float(getattr(config, "in_game_sens", 0.235)), 
                         self._on_config_in_game_sens_changed, is_float=True)
         
-        self._add_spacer()
+        self._add_spacer_in_frame(sec_settings)
         
-        self.color_option = self._add_option_row("Target Color", ["yellow", "purple"], self._on_color_selected)
+        self.color_option = self._add_option_row_in_frame(sec_settings, "Target Color", ["yellow", "purple", "custom"], self._on_color_selected)
         self._option_widgets["color"] = self.color_option
         # 設置當前值
         current_color = getattr(config, "color", "yellow")
         self.color_option.set(current_color)
         
-        # --- Button Mask Section (Moved to Bottom) ---
-        self._add_spacer()
+        # ── Custom HSV Settings (collapsible, only show when custom is selected) ──
+        # 創建 container 以便控制顯示/隱藏（不自動 pack）
+        self.custom_hsv_section, self.custom_hsv_container = self._create_collapsible_section(
+            self.content_frame, "Custom HSV", initially_open=True, auto_pack=False
+        )
+        if current_color == "custom":
+            self.custom_hsv_container.pack(fill="x", pady=(5, 0))
         
-        # Container with slight background for better visual separation
-        mask_container = ctk.CTkFrame(self.content_frame, fg_color=COLOR_SURFACE, corner_radius=6)
-        mask_container.pack(fill="x", pady=(10, 5), padx=0)
+        # HSV Min Values
+        self._add_subtitle_in_frame(self.custom_hsv_section, "HSV MIN")
+        self._add_slider_in_frame(self.custom_hsv_section, "H Min", "custom_hsv_min_h", 0, 179,
+                                  int(getattr(config, "custom_hsv_min_h", 0)),
+                                  lambda v: self._on_custom_hsv_changed("custom_hsv_min_h", v))
+        self._add_slider_in_frame(self.custom_hsv_section, "S Min", "custom_hsv_min_s", 0, 255,
+                                  int(getattr(config, "custom_hsv_min_s", 0)),
+                                  lambda v: self._on_custom_hsv_changed("custom_hsv_min_s", v))
+        self._add_slider_in_frame(self.custom_hsv_section, "V Min", "custom_hsv_min_v", 0, 255,
+                                  int(getattr(config, "custom_hsv_min_v", 0)),
+                                  lambda v: self._on_custom_hsv_changed("custom_hsv_min_v", v))
         
-        # Header inside container
-        header_frame = ctk.CTkFrame(mask_container, fg_color="transparent")
-        header_frame.pack(fill="x", padx=10, pady=(10, 5))
+        self._add_spacer_in_frame(self.custom_hsv_section)
         
-        ctk.CTkLabel(
-            header_frame, 
-            text="BUTTON MASK", 
-            font=("Roboto", 11, "bold"), 
-            text_color=COLOR_TEXT
-        ).pack(side="left")
+        # HSV Max Values
+        self._add_subtitle_in_frame(self.custom_hsv_section, "HSV MAX")
+        self._add_slider_in_frame(self.custom_hsv_section, "H Max", "custom_hsv_max_h", 0, 179,
+                                  int(getattr(config, "custom_hsv_max_h", 179)),
+                                  lambda v: self._on_custom_hsv_changed("custom_hsv_max_h", v))
+        self._add_slider_in_frame(self.custom_hsv_section, "S Max", "custom_hsv_max_s", 0, 255,
+                                  int(getattr(config, "custom_hsv_max_s", 255)),
+                                  lambda v: self._on_custom_hsv_changed("custom_hsv_max_s", v))
+        self._add_slider_in_frame(self.custom_hsv_section, "V Max", "custom_hsv_max_v", 0, 255,
+                                  int(getattr(config, "custom_hsv_max_v", 255)),
+                                  lambda v: self._on_custom_hsv_changed("custom_hsv_max_v", v))
         
-        # Button Mask 總開關 (Right aligned in header)
+        # 根據當前選擇顯示/隱藏 Custom HSV 區塊
+        self._update_custom_hsv_visibility()
+        
+        # ── DETECTION PARAMETERS (collapsible) ──
+        detection_tooltip_text = (
+            "• Merge Distance: Controls the distance threshold for merging detection rectangles. "
+            "Higher values merge more (may cause false merges), lower values merge less (may create multiple targets). "
+            "Recommended: 200-300 (default 250)\n\n"
+            "• Min Contour Points: Filters contours with too few points (usually noise). "
+            "Higher values filter more strictly (may miss small targets), lower values filter more loosely (may include more noise). "
+            "Recommended: 3-10 (default 5)"
+        )
+        sec_detection = self._create_collapsible_section(
+            self.content_frame, 
+            "Detection Parameters", 
+            initially_open=False,
+            tooltip_text=detection_tooltip_text
+        )
+        
+        # Merge Distance
+        self._add_slider_in_frame(sec_detection, "Merge Distance", "detection_merge_distance", 50, 500,
+                                  int(getattr(config, "detection_merge_distance", 250)),
+                                  self._on_detection_merge_distance_changed)
+        
+        self._add_spacer_in_frame(sec_detection)
+        
+        # Min Contour Points
+        self._add_slider_in_frame(sec_detection, "Min Contour Points", "detection_min_contour_points", 3, 100,
+                                  int(getattr(config, "detection_min_contour_points", 5)),
+                                  self._on_detection_min_contour_points_changed)
+        
+        # ── BUTTON MASK (collapsible) ──
+        sec_button_mask = self._create_collapsible_section(self.content_frame, "Button Mask", initially_open=False)
+        
+        # Button Mask 總開關
         if not hasattr(self, 'var_button_mask_enabled'):
             self.var_button_mask_enabled = tk.BooleanVar(value=getattr(config, "button_mask_enabled", False))
         
         master_switch = ctk.CTkSwitch(
-            header_frame,
-            text="Enable",
+            sec_button_mask,
+            text="Enable Button Mask",
             variable=self.var_button_mask_enabled,
             command=self._on_button_mask_enabled_changed,
             fg_color=COLOR_BORDER,
@@ -389,12 +440,12 @@ class ViewerApp(ctk.CTk):
             width=80,
             height=20
         )
-        master_switch.pack(side="right")
+        master_switch.pack(fill="x", pady=(5, 10))
         self._checkbox_vars["button_mask_enabled"] = self.var_button_mask_enabled
         
         # Grid for individual buttons
-        grid_frame = ctk.CTkFrame(mask_container, fg_color="transparent")
-        grid_frame.pack(fill="x", padx=10, pady=(0, 10))
+        grid_frame = ctk.CTkFrame(sec_button_mask, fg_color="transparent")
+        grid_frame.pack(fill="x", pady=(0, 5))
         
         # Configure grid columns
         grid_frame.grid_columnconfigure(0, weight=1)
@@ -498,66 +549,38 @@ class ViewerApp(ctk.CTk):
             )
             ndi_fov_switch.pack(side="right")
             
-            # FOV X Slider
-            fov_x_frame = ctk.CTkFrame(self.capture_content_frame, fg_color="transparent")
-            fov_x_frame.pack(fill="x", pady=2)
-            fov_x_header = ctk.CTkFrame(fov_x_frame, fg_color="transparent")
-            fov_x_header.pack(fill="x")
-            ctk.CTkLabel(fov_x_header, text="FOV X (half-width)", font=FONT_MAIN, text_color=COLOR_TEXT).pack(side="left")
-            self.ndi_fov_x_entry = ctk.CTkEntry(
-                fov_x_header, width=80, height=25, fg_color=COLOR_SURFACE,
+            # FOV Slider (正方形裁切，只需要一個值)
+            fov_frame = ctk.CTkFrame(self.capture_content_frame, fg_color="transparent")
+            fov_frame.pack(fill="x", pady=2)
+            fov_header = ctk.CTkFrame(fov_frame, fg_color="transparent")
+            fov_header.pack(fill="x")
+            ctk.CTkLabel(fov_header, text="FOV (half-size, square crop)", font=FONT_MAIN, text_color=COLOR_TEXT).pack(side="left")
+            self.ndi_fov_entry = ctk.CTkEntry(
+                fov_header, width=80, height=25, fg_color=COLOR_SURFACE,
                 border_width=1, border_color=COLOR_BORDER,
                 text_color=COLOR_TEXT, font=FONT_MAIN, justify="center"
             )
-            init_fov_x = int(getattr(config, "ndi_fov_x", 320))
-            self.ndi_fov_x_entry.insert(0, str(init_fov_x))
-            self.ndi_fov_x_entry.pack(side="right")
+            init_fov = int(getattr(config, "ndi_fov", 320))
+            self.ndi_fov_entry.insert(0, str(init_fov))
+            self.ndi_fov_entry.pack(side="right")
             
-            self.ndi_fov_x_slider = ctk.CTkSlider(
-                fov_x_frame, from_=16, to=1920, number_of_steps=100,
+            self.ndi_fov_slider = ctk.CTkSlider(
+                fov_frame, from_=16, to=1920, number_of_steps=100,
                 fg_color=COLOR_BORDER, progress_color=COLOR_TEXT,
                 button_color=COLOR_TEXT, button_hover_color=COLOR_ACCENT,
                 height=10,
-                command=self._on_ndi_fov_x_slider_changed
+                command=self._on_ndi_fov_slider_changed
             )
-            self.ndi_fov_x_slider.set(init_fov_x)
-            self.ndi_fov_x_slider.pack(fill="x", pady=(2, 5))
-            self.ndi_fov_x_entry.bind("<Return>", self._on_ndi_fov_x_entry_changed)
-            self.ndi_fov_x_entry.bind("<FocusOut>", self._on_ndi_fov_x_entry_changed)
-            
-            # FOV Y Slider
-            fov_y_frame = ctk.CTkFrame(self.capture_content_frame, fg_color="transparent")
-            fov_y_frame.pack(fill="x", pady=2)
-            fov_y_header = ctk.CTkFrame(fov_y_frame, fg_color="transparent")
-            fov_y_header.pack(fill="x")
-            ctk.CTkLabel(fov_y_header, text="FOV Y (half-height)", font=FONT_MAIN, text_color=COLOR_TEXT).pack(side="left")
-            self.ndi_fov_y_entry = ctk.CTkEntry(
-                fov_y_header, width=80, height=25, fg_color=COLOR_SURFACE,
-                border_width=1, border_color=COLOR_BORDER,
-                text_color=COLOR_TEXT, font=FONT_MAIN, justify="center"
-            )
-            init_fov_y = int(getattr(config, "ndi_fov_y", 320))
-            self.ndi_fov_y_entry.insert(0, str(init_fov_y))
-            self.ndi_fov_y_entry.pack(side="right")
-            
-            self.ndi_fov_y_slider = ctk.CTkSlider(
-                fov_y_frame, from_=16, to=1080, number_of_steps=100,
-                fg_color=COLOR_BORDER, progress_color=COLOR_TEXT,
-                button_color=COLOR_TEXT, button_hover_color=COLOR_ACCENT,
-                height=10,
-                command=self._on_ndi_fov_y_slider_changed
-            )
-            self.ndi_fov_y_slider.set(init_fov_y)
-            self.ndi_fov_y_slider.pack(fill="x", pady=(2, 5))
-            self.ndi_fov_y_entry.bind("<Return>", self._on_ndi_fov_y_entry_changed)
-            self.ndi_fov_y_entry.bind("<FocusOut>", self._on_ndi_fov_y_entry_changed)
+            self.ndi_fov_slider.set(init_fov)
+            self.ndi_fov_slider.pack(fill="x", pady=(2, 5))
+            self.ndi_fov_entry.bind("<Return>", self._on_ndi_fov_entry_changed)
+            self.ndi_fov_entry.bind("<FocusOut>", self._on_ndi_fov_entry_changed)
             
             # 裁切範圍資訊
-            total_w = init_fov_x * 2
-            total_h = init_fov_y * 2
+            total_size = init_fov * 2
             self.ndi_fov_info_label = ctk.CTkLabel(
                 self.capture_content_frame,
-                text=f"Crop area: {total_w} x {total_h} px (centered on frame)",
+                text=f"Crop area: {total_size} x {total_size} px (square, centered on frame)",
                 font=("Roboto", 9), text_color=COLOR_TEXT_DIM
             )
             self.ndi_fov_info_label.pack(anchor="w", pady=(0, 5))
@@ -617,66 +640,38 @@ class ViewerApp(ctk.CTk):
             )
             udp_fov_switch.pack(side="right")
             
-            # FOV X Slider
-            fov_x_frame = ctk.CTkFrame(self.capture_content_frame, fg_color="transparent")
-            fov_x_frame.pack(fill="x", pady=2)
-            fov_x_header = ctk.CTkFrame(fov_x_frame, fg_color="transparent")
-            fov_x_header.pack(fill="x")
-            ctk.CTkLabel(fov_x_header, text="FOV X (half-width)", font=FONT_MAIN, text_color=COLOR_TEXT).pack(side="left")
-            self.udp_fov_x_entry = ctk.CTkEntry(
-                fov_x_header, width=80, height=25, fg_color=COLOR_SURFACE,
+            # FOV Slider (正方形裁切，只需要一個值)
+            fov_frame = ctk.CTkFrame(self.capture_content_frame, fg_color="transparent")
+            fov_frame.pack(fill="x", pady=2)
+            fov_header = ctk.CTkFrame(fov_frame, fg_color="transparent")
+            fov_header.pack(fill="x")
+            ctk.CTkLabel(fov_header, text="FOV (half-size, square crop)", font=FONT_MAIN, text_color=COLOR_TEXT).pack(side="left")
+            self.udp_fov_entry = ctk.CTkEntry(
+                fov_header, width=80, height=25, fg_color=COLOR_SURFACE,
                 border_width=1, border_color=COLOR_BORDER,
                 text_color=COLOR_TEXT, font=FONT_MAIN, justify="center"
             )
-            init_fov_x = int(getattr(config, "udp_fov_x", 320))
-            self.udp_fov_x_entry.insert(0, str(init_fov_x))
-            self.udp_fov_x_entry.pack(side="right")
+            init_fov = int(getattr(config, "udp_fov", 320))
+            self.udp_fov_entry.insert(0, str(init_fov))
+            self.udp_fov_entry.pack(side="right")
             
-            self.udp_fov_x_slider = ctk.CTkSlider(
-                fov_x_frame, from_=16, to=1920, number_of_steps=100,
+            self.udp_fov_slider = ctk.CTkSlider(
+                fov_frame, from_=16, to=1920, number_of_steps=100,
                 fg_color=COLOR_BORDER, progress_color=COLOR_TEXT,
                 button_color=COLOR_TEXT, button_hover_color=COLOR_ACCENT,
                 height=10,
-                command=self._on_udp_fov_x_slider_changed
+                command=self._on_udp_fov_slider_changed
             )
-            self.udp_fov_x_slider.set(init_fov_x)
-            self.udp_fov_x_slider.pack(fill="x", pady=(2, 5))
-            self.udp_fov_x_entry.bind("<Return>", self._on_udp_fov_x_entry_changed)
-            self.udp_fov_x_entry.bind("<FocusOut>", self._on_udp_fov_x_entry_changed)
-            
-            # FOV Y Slider
-            fov_y_frame = ctk.CTkFrame(self.capture_content_frame, fg_color="transparent")
-            fov_y_frame.pack(fill="x", pady=2)
-            fov_y_header = ctk.CTkFrame(fov_y_frame, fg_color="transparent")
-            fov_y_header.pack(fill="x")
-            ctk.CTkLabel(fov_y_header, text="FOV Y (half-height)", font=FONT_MAIN, text_color=COLOR_TEXT).pack(side="left")
-            self.udp_fov_y_entry = ctk.CTkEntry(
-                fov_y_header, width=80, height=25, fg_color=COLOR_SURFACE,
-                border_width=1, border_color=COLOR_BORDER,
-                text_color=COLOR_TEXT, font=FONT_MAIN, justify="center"
-            )
-            init_fov_y = int(getattr(config, "udp_fov_y", 320))
-            self.udp_fov_y_entry.insert(0, str(init_fov_y))
-            self.udp_fov_y_entry.pack(side="right")
-            
-            self.udp_fov_y_slider = ctk.CTkSlider(
-                fov_y_frame, from_=16, to=1080, number_of_steps=100,
-                fg_color=COLOR_BORDER, progress_color=COLOR_TEXT,
-                button_color=COLOR_TEXT, button_hover_color=COLOR_ACCENT,
-                height=10,
-                command=self._on_udp_fov_y_slider_changed
-            )
-            self.udp_fov_y_slider.set(init_fov_y)
-            self.udp_fov_y_slider.pack(fill="x", pady=(2, 5))
-            self.udp_fov_y_entry.bind("<Return>", self._on_udp_fov_y_entry_changed)
-            self.udp_fov_y_entry.bind("<FocusOut>", self._on_udp_fov_y_entry_changed)
+            self.udp_fov_slider.set(init_fov)
+            self.udp_fov_slider.pack(fill="x", pady=(2, 5))
+            self.udp_fov_entry.bind("<Return>", self._on_udp_fov_entry_changed)
+            self.udp_fov_entry.bind("<FocusOut>", self._on_udp_fov_entry_changed)
             
             # 裁切範圍資訊
-            total_w = init_fov_x * 2
-            total_h = init_fov_y * 2
+            total_size = init_fov * 2
             self.udp_fov_info_label = ctk.CTkLabel(
                 self.capture_content_frame,
-                text=f"Crop area: {total_w} x {total_h} px (centered on frame)",
+                text=f"Crop area: {total_size} x {total_size} px (square, centered on frame)",
                 font=("Roboto", 9), text_color=COLOR_TEXT_DIM
             )
             self.udp_fov_info_label.pack(anchor="w", pady=(0, 5))
@@ -1676,8 +1671,64 @@ class ViewerApp(ctk.CTk):
     def _add_spacer_in_frame(self, parent):
         """在指定 frame 中添加間距"""
         ctk.CTkFrame(parent, height=1, fg_color="transparent").pack(pady=5)
+    
+    def _create_tooltip(self, widget, text):
+        """
+        為 widget 創建 tooltip
+        
+        Args:
+            widget: 要綁定 tooltip 的 widget
+            text: tooltip 文字內容
+        """
+        tooltip_window = [None]  # 使用列表以便在嵌套函數中修改
+        
+        def show_tooltip(event):
+            if tooltip_window[0] is not None:
+                return
+            
+            # 獲取鼠標位置
+            x = event.x_root + 10
+            y = event.y_root + 10
+            
+            # 創建 tooltip 窗口
+            tooltip_win = ctk.CTkToplevel(widget)
+            tooltip_win.overrideredirect(True)
+            tooltip_win.attributes("-topmost", True)
+            tooltip_win.configure(fg_color=COLOR_BG)
+            
+            # 創建 tooltip 內容
+            tooltip_frame = ctk.CTkFrame(tooltip_win, fg_color=COLOR_SURFACE, corner_radius=4)
+            tooltip_frame.pack(fill="both", expand=True, padx=1, pady=1)
+            
+            tooltip_label = ctk.CTkLabel(
+                tooltip_frame,
+                text=text,
+                font=("Roboto", 12.5),
+                text_color=COLOR_TEXT,
+                justify="left",
+                anchor="w",
+                wraplength=400
+            )
+            tooltip_label.pack(anchor="w", padx=12, pady=10)
+            
+            # 更新窗口大小並設置位置
+            tooltip_win.update_idletasks()
+            tooltip_win.geometry(f"+{x}+{y}")
+            
+            tooltip_window[0] = tooltip_win
+        
+        def hide_tooltip(event):
+            if tooltip_window[0] is not None:
+                try:
+                    tooltip_window[0].destroy()
+                except:
+                    pass
+                tooltip_window[0] = None
+        
+        widget.bind("<Enter>", show_tooltip)
+        widget.bind("<Leave>", hide_tooltip)
 
-    def _create_collapsible_section(self, parent, title, initially_open=True):
+    def _create_collapsible_section(self, parent, title, initially_open=True, auto_pack=True, tooltip_text=None):
         """
         建立可展開/收起的 section。
         
@@ -1685,12 +1736,15 @@ class ViewerApp(ctk.CTk):
             parent: 父容器
             title: section 標題
             initially_open: 是否預設展開
+            auto_pack: 是否自動 pack container（False 時由調用者控制）
+            tooltip_text: 可選的 tooltip 文字（如果提供，會在標題旁顯示問號圖標）
             
         Returns:
-            content_frame: section 的內容容器（將子元件加入此 frame）
+            tuple: (content_frame, container) 如果 auto_pack=False，否則只返回 content_frame
         """
         container = ctk.CTkFrame(parent, fg_color="transparent")
-        container.pack(fill="x", pady=(5, 0))
+        if auto_pack:
+            container.pack(fill="x", pady=(5, 0))
         
         content = ctk.CTkFrame(container, fg_color="transparent")
         
@@ -1712,6 +1766,15 @@ class ViewerApp(ctk.CTk):
         )
         title_label.pack(side="left", padx=(4, 0))
         
+        # 如果有 tooltip 文字，添加問號圖標
+        if tooltip_text:
+            tooltip_icon = ctk.CTkLabel(
+                header, text="?", font=("Roboto", 10, "bold"), text_color=COLOR_TEXT_DIM,
+                width=20, cursor="hand2"
+            )
+            tooltip_icon.pack(side="left", padx=(8, 0))
+            self._create_tooltip(tooltip_icon, tooltip_text)
+        
         def toggle(_event=None):
             if is_open[0]:
                 content.pack_forget()
@@ -1729,7 +1792,10 @@ class ViewerApp(ctk.CTk):
         if initially_open:
             content.pack(fill="x", padx=(8, 0), pady=(2, 0))
         
-        return content
+        if auto_pack:
+            return content
+        else:
+            return content, container
 
     def _add_slider_in_frame(self, parent, text, key, min_val, max_val, init_val, command, is_float=False):
         """在指定 parent frame 中添加 slider（與 _add_slider 邏輯一致）"""
@@ -2254,32 +2320,20 @@ class ViewerApp(ctk.CTk):
                 # 更新 NDI FOV 設置
                 elif k == "ndi_fov_enabled" and hasattr(self, "var_ndi_fov_enabled"):
                     self.var_ndi_fov_enabled.set(v)
-                elif k == "ndi_fov_x" and hasattr(self, "ndi_fov_x_entry") and self.ndi_fov_x_entry.winfo_exists():
-                    self.ndi_fov_x_entry.delete(0, "end")
-                    self.ndi_fov_x_entry.insert(0, str(v))
-                    if hasattr(self, "ndi_fov_x_slider"):
-                        self.ndi_fov_x_slider.set(v)
-                    self._update_ndi_fov_info()
-                elif k == "ndi_fov_y" and hasattr(self, "ndi_fov_y_entry") and self.ndi_fov_y_entry.winfo_exists():
-                    self.ndi_fov_y_entry.delete(0, "end")
-                    self.ndi_fov_y_entry.insert(0, str(v))
-                    if hasattr(self, "ndi_fov_y_slider"):
-                        self.ndi_fov_y_slider.set(v)
+                elif k == "ndi_fov" and hasattr(self, "ndi_fov_entry") and self.ndi_fov_entry.winfo_exists():
+                    self.ndi_fov_entry.delete(0, "end")
+                    self.ndi_fov_entry.insert(0, str(v))
+                    if hasattr(self, "ndi_fov_slider"):
+                        self.ndi_fov_slider.set(v)
                     self._update_ndi_fov_info()
                 # 更新 UDP FOV 設置
                 elif k == "udp_fov_enabled" and hasattr(self, "var_udp_fov_enabled"):
                     self.var_udp_fov_enabled.set(v)
-                elif k == "udp_fov_x" and hasattr(self, "udp_fov_x_entry") and self.udp_fov_x_entry.winfo_exists():
-                    self.udp_fov_x_entry.delete(0, "end")
-                    self.udp_fov_x_entry.insert(0, str(v))
-                    if hasattr(self, "udp_fov_x_slider"):
-                        self.udp_fov_x_slider.set(v)
-                    self._update_udp_fov_info()
-                elif k == "udp_fov_y" and hasattr(self, "udp_fov_y_entry") and self.udp_fov_y_entry.winfo_exists():
-                    self.udp_fov_y_entry.delete(0, "end")
-                    self.udp_fov_y_entry.insert(0, str(v))
-                    if hasattr(self, "udp_fov_y_slider"):
-                        self.udp_fov_y_slider.set(v)
+                elif k == "udp_fov" and hasattr(self, "udp_fov_entry") and self.udp_fov_entry.winfo_exists():
+                    self.udp_fov_entry.delete(0, "end")
+                    self.udp_fov_entry.insert(0, str(v))
+                    if hasattr(self, "udp_fov_slider"):
+                        self.udp_fov_slider.set(v)
                     self._update_udp_fov_info()
 
             from src.utils.detection import reload_model
@@ -2371,62 +2425,38 @@ class ViewerApp(ctk.CTk):
             self.status_indicator.configure(text="● Refreshing...", text_color=COLOR_TEXT)
 
     def _update_ndi_fov_slider_max(self, width, height):
-        """更新 NDI FOV 滑條的最大值"""
-        if hasattr(self, 'ndi_fov_x_slider') and self.ndi_fov_x_slider.winfo_exists():
-            # 最大值設為寬度的一半（因為 fov_x 是寬度的一半）
-            max_x = max(16, width // 2) if width else 1920
-            self.ndi_fov_x_slider.configure(to=max_x)
+        """更新 NDI FOV 滑條的最大值（正方形裁切，使用較小的尺寸）"""
+        if hasattr(self, 'ndi_fov_slider') and self.ndi_fov_slider.winfo_exists():
+            # 正方形裁切，最大值設為寬度和高度中較小的一半
+            max_fov = max(16, min(width, height) // 2) if (width and height) else 1920
+            self.ndi_fov_slider.configure(to=max_fov)
             # 如果當前值超過新的最大值，調整為最大值
-            current_val = int(getattr(config, "ndi_fov_x", 320))
-            if current_val > max_x:
-                config.ndi_fov_x = max_x
-                self.ndi_fov_x_slider.set(max_x)
-                if hasattr(self, 'ndi_fov_x_entry') and self.ndi_fov_x_entry.winfo_exists():
-                    self.ndi_fov_x_entry.delete(0, "end")
-                    self.ndi_fov_x_entry.insert(0, str(max_x))
-        if hasattr(self, 'ndi_fov_y_slider') and self.ndi_fov_y_slider.winfo_exists():
-            # 最大值設為高度的一半（因為 fov_y 是高度的一半）
-            max_y = max(16, height // 2) if height else 1080
-            self.ndi_fov_y_slider.configure(to=max_y)
-            # 如果當前值超過新的最大值，調整為最大值
-            current_val = int(getattr(config, "ndi_fov_y", 320))
-            if current_val > max_y:
-                config.ndi_fov_y = max_y
-                self.ndi_fov_y_slider.set(max_y)
-                if hasattr(self, 'ndi_fov_y_entry') and self.ndi_fov_y_entry.winfo_exists():
-                    self.ndi_fov_y_entry.delete(0, "end")
-                    self.ndi_fov_y_entry.insert(0, str(max_y))
-        # 更新資訊顯示
-        self._update_ndi_fov_info()
+            current_val = int(getattr(config, "ndi_fov", 320))
+            if current_val > max_fov:
+                config.ndi_fov = max_fov
+                self.ndi_fov_slider.set(max_fov)
+                if hasattr(self, 'ndi_fov_entry') and self.ndi_fov_entry.winfo_exists():
+                    self.ndi_fov_entry.delete(0, "end")
+                    self.ndi_fov_entry.insert(0, str(max_fov))
+            # 更新資訊顯示
+            self._update_ndi_fov_info()
     
     def _update_udp_fov_slider_max(self, width, height):
-        """更新 UDP FOV 滑條的最大值"""
-        if hasattr(self, 'udp_fov_x_slider') and self.udp_fov_x_slider.winfo_exists():
-            # 最大值設為寬度的一半（因為 fov_x 是寬度的一半）
-            max_x = max(16, width // 2) if width else 1920
-            self.udp_fov_x_slider.configure(to=max_x)
+        """更新 UDP FOV 滑條的最大值（正方形裁切，使用較小的尺寸）"""
+        if hasattr(self, 'udp_fov_slider') and self.udp_fov_slider.winfo_exists():
+            # 正方形裁切，最大值設為寬度和高度中較小的一半
+            max_fov = max(16, min(width, height) // 2) if (width and height) else 1920
+            self.udp_fov_slider.configure(to=max_fov)
             # 如果當前值超過新的最大值，調整為最大值
-            current_val = int(getattr(config, "udp_fov_x", 320))
-            if current_val > max_x:
-                config.udp_fov_x = max_x
-                self.udp_fov_x_slider.set(max_x)
-                if hasattr(self, 'udp_fov_x_entry') and self.udp_fov_x_entry.winfo_exists():
-                    self.udp_fov_x_entry.delete(0, "end")
-                    self.udp_fov_x_entry.insert(0, str(max_x))
-        if hasattr(self, 'udp_fov_y_slider') and self.udp_fov_y_slider.winfo_exists():
-            # 最大值設為高度的一半（因為 fov_y 是高度的一半）
-            max_y = max(16, height // 2) if height else 1080
-            self.udp_fov_y_slider.configure(to=max_y)
-            # 如果當前值超過新的最大值，調整為最大值
-            current_val = int(getattr(config, "udp_fov_y", 320))
-            if current_val > max_y:
-                config.udp_fov_y = max_y
-                self.udp_fov_y_slider.set(max_y)
-                if hasattr(self, 'udp_fov_y_entry') and self.udp_fov_y_entry.winfo_exists():
-                    self.udp_fov_y_entry.delete(0, "end")
-                    self.udp_fov_y_entry.insert(0, str(max_y))
-        # 更新資訊顯示
-        self._update_udp_fov_info()
+            current_val = int(getattr(config, "udp_fov", 320))
+            if current_val > max_fov:
+                config.udp_fov = max_fov
+                self.udp_fov_slider.set(max_fov)
+                if hasattr(self, 'udp_fov_entry') and self.udp_fov_entry.winfo_exists():
+                    self.udp_fov_entry.delete(0, "end")
+                    self.udp_fov_entry.insert(0, str(max_fov))
+            # 更新資訊顯示
+            self._update_udp_fov_info()
     
     def _connect_to_selected(self):
         if self.capture.mode == "NDI":
@@ -2653,46 +2683,24 @@ class ViewerApp(ctk.CTk):
         if hasattr(self, 'var_ndi_fov_enabled'):
             config.ndi_fov_enabled = self.var_ndi_fov_enabled.get()
     
-    def _on_ndi_fov_x_slider_changed(self, val):
-        """NDI FOV X 滑條改變"""
+    def _on_ndi_fov_slider_changed(self, val):
+        """NDI FOV 滑條改變"""
         int_val = int(round(val))
-        config.ndi_fov_x = int_val
-        if hasattr(self, 'ndi_fov_x_entry') and self.ndi_fov_x_entry.winfo_exists():
-            self.ndi_fov_x_entry.delete(0, "end")
-            self.ndi_fov_x_entry.insert(0, str(int_val))
+        config.ndi_fov = int_val
+        if hasattr(self, 'ndi_fov_entry') and self.ndi_fov_entry.winfo_exists():
+            self.ndi_fov_entry.delete(0, "end")
+            self.ndi_fov_entry.insert(0, str(int_val))
         self._update_ndi_fov_info()
     
-    def _on_ndi_fov_x_entry_changed(self, event=None):
-        """NDI FOV X 輸入框改變"""
-        if hasattr(self, 'ndi_fov_x_entry') and self.ndi_fov_x_entry.winfo_exists():
+    def _on_ndi_fov_entry_changed(self, event=None):
+        """NDI FOV 輸入框改變"""
+        if hasattr(self, 'ndi_fov_entry') and self.ndi_fov_entry.winfo_exists():
             try:
-                val = int(self.ndi_fov_x_entry.get())
+                val = int(self.ndi_fov_entry.get())
                 val = max(16, min(1920, val))
-                config.ndi_fov_x = val
-                if hasattr(self, 'ndi_fov_x_slider'):
-                    self.ndi_fov_x_slider.set(val)
-                self._update_ndi_fov_info()
-            except ValueError:
-                pass
-    
-    def _on_ndi_fov_y_slider_changed(self, val):
-        """NDI FOV Y 滑條改變"""
-        int_val = int(round(val))
-        config.ndi_fov_y = int_val
-        if hasattr(self, 'ndi_fov_y_entry') and self.ndi_fov_y_entry.winfo_exists():
-            self.ndi_fov_y_entry.delete(0, "end")
-            self.ndi_fov_y_entry.insert(0, str(int_val))
-        self._update_ndi_fov_info()
-    
-    def _on_ndi_fov_y_entry_changed(self, event=None):
-        """NDI FOV Y 輸入框改變"""
-        if hasattr(self, 'ndi_fov_y_entry') and self.ndi_fov_y_entry.winfo_exists():
-            try:
-                val = int(self.ndi_fov_y_entry.get())
-                val = max(16, min(1080, val))
-                config.ndi_fov_y = val
-                if hasattr(self, 'ndi_fov_y_slider'):
-                    self.ndi_fov_y_slider.set(val)
+                config.ndi_fov = val
+                if hasattr(self, 'ndi_fov_slider'):
+                    self.ndi_fov_slider.set(val)
                 self._update_ndi_fov_info()
             except ValueError:
                 pass
@@ -2700,12 +2708,10 @@ class ViewerApp(ctk.CTk):
     def _update_ndi_fov_info(self):
         """更新 NDI 裁切範圍資訊顯示"""
         if hasattr(self, 'ndi_fov_info_label') and self.ndi_fov_info_label.winfo_exists():
-            fov_x = int(getattr(config, "ndi_fov_x", 320))
-            fov_y = int(getattr(config, "ndi_fov_y", 320))
-            total_w = fov_x * 2
-            total_h = fov_y * 2
+            fov = int(getattr(config, "ndi_fov", 320))
+            total_size = fov * 2
             self.ndi_fov_info_label.configure(
-                text=f"Crop area: {total_w} x {total_h} px (centered on frame)"
+                text=f"Crop area: {total_size} x {total_size} px (square, centered on frame)"
             )
     
     # --- UDP FOV Callbacks ---
@@ -2714,46 +2720,24 @@ class ViewerApp(ctk.CTk):
         if hasattr(self, 'var_udp_fov_enabled'):
             config.udp_fov_enabled = self.var_udp_fov_enabled.get()
     
-    def _on_udp_fov_x_slider_changed(self, val):
-        """UDP FOV X 滑條改變"""
+    def _on_udp_fov_slider_changed(self, val):
+        """UDP FOV 滑條改變"""
         int_val = int(round(val))
-        config.udp_fov_x = int_val
-        if hasattr(self, 'udp_fov_x_entry') and self.udp_fov_x_entry.winfo_exists():
-            self.udp_fov_x_entry.delete(0, "end")
-            self.udp_fov_x_entry.insert(0, str(int_val))
+        config.udp_fov = int_val
+        if hasattr(self, 'udp_fov_entry') and self.udp_fov_entry.winfo_exists():
+            self.udp_fov_entry.delete(0, "end")
+            self.udp_fov_entry.insert(0, str(int_val))
         self._update_udp_fov_info()
     
-    def _on_udp_fov_x_entry_changed(self, event=None):
-        """UDP FOV X 輸入框改變"""
-        if hasattr(self, 'udp_fov_x_entry') and self.udp_fov_x_entry.winfo_exists():
+    def _on_udp_fov_entry_changed(self, event=None):
+        """UDP FOV 輸入框改變"""
+        if hasattr(self, 'udp_fov_entry') and self.udp_fov_entry.winfo_exists():
             try:
-                val = int(self.udp_fov_x_entry.get())
+                val = int(self.udp_fov_entry.get())
                 val = max(16, min(1920, val))
-                config.udp_fov_x = val
-                if hasattr(self, 'udp_fov_x_slider'):
-                    self.udp_fov_x_slider.set(val)
-                self._update_udp_fov_info()
-            except ValueError:
-                pass
-    
-    def _on_udp_fov_y_slider_changed(self, val):
-        """UDP FOV Y 滑條改變"""
-        int_val = int(round(val))
-        config.udp_fov_y = int_val
-        if hasattr(self, 'udp_fov_y_entry') and self.udp_fov_y_entry.winfo_exists():
-            self.udp_fov_y_entry.delete(0, "end")
-            self.udp_fov_y_entry.insert(0, str(int_val))
-        self._update_udp_fov_info()
-    
-    def _on_udp_fov_y_entry_changed(self, event=None):
-        """UDP FOV Y 輸入框改變"""
-        if hasattr(self, 'udp_fov_y_entry') and self.udp_fov_y_entry.winfo_exists():
-            try:
-                val = int(self.udp_fov_y_entry.get())
-                val = max(16, min(1080, val))
-                config.udp_fov_y = val
-                if hasattr(self, 'udp_fov_y_slider'):
-                    self.udp_fov_y_slider.set(val)
+                config.udp_fov = val
+                if hasattr(self, 'udp_fov_slider'):
+                    self.udp_fov_slider.set(val)
                 self._update_udp_fov_info()
             except ValueError:
                 pass
@@ -2761,12 +2745,10 @@ class ViewerApp(ctk.CTk):
     def _update_udp_fov_info(self):
         """更新 UDP 裁切範圍資訊顯示"""
         if hasattr(self, 'udp_fov_info_label') and self.udp_fov_info_label.winfo_exists():
-            fov_x = int(getattr(config, "udp_fov_x", 320))
-            fov_y = int(getattr(config, "udp_fov_y", 320))
-            total_w = fov_x * 2
-            total_h = fov_y * 2
+            fov = int(getattr(config, "udp_fov", 320))
+            total_size = fov * 2
             self.udp_fov_info_label.configure(
-                text=f"Crop area: {total_w} x {total_h} px (centered on frame)"
+                text=f"Crop area: {total_size} x {total_size} px (square, centered on frame)"
             )
 
     def _update_connection_status_loop(self):
@@ -3025,6 +3007,44 @@ class ViewerApp(ctk.CTk):
     def _on_color_selected(self, val): 
         config.color = val
         self.tracker.color = val
+        # 實時重新載入模型以應用新的顏色設定
+        from src.utils.detection import reload_model
+        self.tracker.model, self.tracker.class_names = reload_model()
+        # 更新 Custom HSV 區塊的可見性
+        self._update_custom_hsv_visibility()
+    
+    def _update_custom_hsv_visibility(self):
+        """根據當前選擇的顏色更新 Custom HSV 區塊的可見性"""
+        if hasattr(self, 'custom_hsv_container'):
+            current_color = getattr(config, "color", "yellow")
+            if current_color == "custom":
+                # 顯示 Custom HSV 區塊
+                if not self.custom_hsv_container.winfo_ismapped():
+                    self.custom_hsv_container.pack(fill="x", pady=(5, 0))
+            else:
+                # 隱藏 Custom HSV 區塊
+                if self.custom_hsv_container.winfo_ismapped():
+                    self.custom_hsv_container.pack_forget()
+    
+    def _on_custom_hsv_changed(self, key, val):
+        """Custom HSV 值改變時的回調"""
+        setattr(config, key, int(val))
+        # 如果當前選擇的是 custom，實時重新載入模型
+        if getattr(config, "color", "yellow") == "custom":
+            from src.utils.detection import reload_model
+            if hasattr(self, 'tracker'):
+                self.tracker.model, self.tracker.class_names = reload_model()
+                print(f"[UI] Custom HSV updated: {key} = {int(val)}")
+    
+    def _on_detection_merge_distance_changed(self, val):
+        """Detection Merge Distance 改變時的回調"""
+        config.detection_merge_distance = int(val)
+        print(f"[UI] Detection merge distance updated: {int(val)}")
+    
+    def _on_detection_min_contour_points_changed(self, val):
+        """Detection Min Contour Points 改變時的回調"""
+        config.detection_min_contour_points = int(val)
+        print(f"[UI] Detection min contour points updated: {int(val)}")
     
     def _on_mode_selected(self, val): 
         config.mode = val

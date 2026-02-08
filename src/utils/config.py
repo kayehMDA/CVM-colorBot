@@ -16,6 +16,18 @@ class Config:
         self.aim_type = "head"  # Aimbot 瞄準類型: head, body, nearest
 
         self.color = "purple"
+        
+        # --- Detection Parameters ---
+        self.detection_merge_distance = 250  # 矩形合併距離閾值 (50-500)
+        self.detection_min_contour_points = 5  # 最小輪廓點數 (3-100)
+        
+        # --- Custom HSV Settings ---
+        self.custom_hsv_min_h = 0    # H 最小值 (0-179)
+        self.custom_hsv_min_s = 0    # S 最小值 (0-255)
+        self.custom_hsv_min_v = 0    # V 最小值 (0-255)
+        self.custom_hsv_max_h = 179  # H 最大值 (0-179)
+        self.custom_hsv_max_s = 255  # S 最大值 (0-255)
+        self.custom_hsv_max_v = 255  # V 最大值 (0-255)
 
         
         # --- Mouse / MAKCU ---
@@ -144,13 +156,11 @@ class Config:
         
         # --- NDI FOV Settings ---
         self.ndi_fov_enabled = False  # 是否啟用 NDI 中心裁切
-        self.ndi_fov_x = 320          # NDI 擷取區域寬度的一半 (像素)
-        self.ndi_fov_y = 320          # NDI 擷取區域高度的一半 (像素)
+        self.ndi_fov = 320            # NDI 正方形裁切區域邊長的一半 (像素)
         
         # --- UDP FOV Settings ---
         self.udp_fov_enabled = False  # 是否啟用 UDP 中心裁切
-        self.udp_fov_x = 320          # UDP 擷取區域寬度的一半 (像素)
-        self.udp_fov_y = 320          # UDP 擷取區域高度的一半 (像素)
+        self.udp_fov = 320            # UDP 正方形裁切區域邊長的一半 (像素)
         
         # --- CaptureCard Settings ---
         self.capture_device_index = 0
@@ -186,6 +196,18 @@ class Config:
             "aim_offsetY": self.aim_offsetY,
             "aim_type": self.aim_type,
             "color": self.color,
+            
+            # Detection Parameters
+            "detection_merge_distance": self.detection_merge_distance,
+            "detection_min_contour_points": self.detection_min_contour_points,
+            
+            # Custom HSV Settings
+            "custom_hsv_min_h": self.custom_hsv_min_h,
+            "custom_hsv_min_s": self.custom_hsv_min_s,
+            "custom_hsv_min_v": self.custom_hsv_min_v,
+            "custom_hsv_max_h": self.custom_hsv_max_h,
+            "custom_hsv_max_s": self.custom_hsv_max_s,
+            "custom_hsv_max_v": self.custom_hsv_max_v,
             
             # Mouse / MAKCU
             "selected_mouse_button": self.selected_mouse_button,
@@ -303,13 +325,11 @@ class Config:
             
             # NDI FOV Settings
             "ndi_fov_enabled": self.ndi_fov_enabled,
-            "ndi_fov_x": self.ndi_fov_x,
-            "ndi_fov_y": self.ndi_fov_y,
+            "ndi_fov": self.ndi_fov,
             
             # UDP FOV Settings
             "udp_fov_enabled": self.udp_fov_enabled,
-            "udp_fov_x": self.udp_fov_x,
-            "udp_fov_y": self.udp_fov_y,
+            "udp_fov": self.udp_fov,
             
             # CaptureCard Settings
             "capture_device_index": self.capture_device_index,
