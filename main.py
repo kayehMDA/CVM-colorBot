@@ -72,6 +72,13 @@ class AimTracker:
         self.rcs_pull_speed = int(getattr(config, "rcs_pull_speed", 10))
         self.rcs_activation_delay = int(getattr(config, "rcs_activation_delay", 100))
         self.rcs_rapid_click_threshold = int(getattr(config, "rcs_rapid_click_threshold", 200))
+        
+        # Silent Mode 設置
+        self.silent_distance = float(getattr(config, "silent_distance", 1.0))
+        self.silent_delay = float(getattr(config, "silent_delay", 0.1))
+        self.silent_move_delay = float(getattr(config, "silent_move_delay", 0.5))
+        self.silent_return_delay = float(getattr(config, "silent_return_delay", 0.5))
+        self.last_silent_click_time = 0  # 用於追蹤最後一次開槍時間
 
         self.in_game_sens = float(getattr(config, "in_game_sens", 0.235))
         self.color = getattr(config, "color", "yellow")

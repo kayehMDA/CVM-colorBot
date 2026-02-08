@@ -17,6 +17,14 @@ _rcs_state = {
     "rcs_lock": threading.Lock()  # 線程鎖
 }
 
+# Y 軸解鎖狀態管理
+_y_release_state = {
+    "is_released": False,  # Y 軸是否已解鎖
+    "release_start_time": None,  # 解鎖開始時間
+    "release_duration": 0.0,  # 解鎖持續時間（秒）
+    "release_lock": threading.Lock()  # 線程鎖
+}
+
 
 def _rcs_pull_loop(controller, pull_speed):
     """
@@ -168,4 +176,61 @@ def process_rcs(controller, pull_speed, activation_delay, rapid_click_threshold)
             stop_rcs()
     
     return is_rcs_active()
+
+
+def check_y_release():
+    """
+    檢查 Y 軸是否應該解鎖（每幀調用）
+    
+    當左鍵按下時，啟動 Y 軸解鎖計時器，在指定時間內解鎖 Y 軸控制
+    
+    Returns:
+        bool: Y 軸是否應該解鎖（True = 解鎖，aimbot 不控制 Y 軸）
+    """
+    # 檢查功能是否啟用
+    if not getattr(config, "rcs_release_y_enabled", False):
+        with _y_release_state["release_lock"]:
+            _y_release_state["is_released"] = False
+            _y_release_state["release_start_time"] = None
+        return False
+    
+    release_duration = float(getattr(config, "rcs_release_y_duration", 1.0))
+    # 限制範圍在 0.1~5 秒
+    release_duration = max(0.1, min(5.0, release_duration))
+    
+    now = time.time()
+    left_button_pressed = is_button_pressed(0)  # 0 = 左鍵
+    
+    with _y_release_state["release_lock"]:
+        if left_button_pressed:
+            # 如果按鈕剛按下，啟動解鎖計時器
+            if _y_release_state["release_start_time"] is None:
+                _y_release_state["release_start_time"] = now
+                _y_release_state["release_duration"] = release_duration
+                _y_release_state["is_released"] = True
+            else:
+                # 檢查是否還在解鎖時間內
+                elapsed = now - _y_release_state["release_start_time"]
+                if elapsed < release_duration:
+                    _y_release_state["is_released"] = True
+                else:
+                    # 解鎖時間已過，但按鈕仍按下，不重置（等待按鈕釋放）
+                    _y_release_state["is_released"] = False
+        else:
+            # 按鈕未按下，重置解鎖狀態
+            _y_release_state["is_released"] = False
+            _y_release_state["release_start_time"] = None
+    
+    return _y_release_state["is_released"]
+
+
+def is_y_released():
+    """
+    檢查 Y 軸是否正在解鎖
+    
+    Returns:
+        bool: Y 軸是否解鎖
+    """
+    with _y_release_state["release_lock"]:
+        return _y_release_state["is_released"]
 

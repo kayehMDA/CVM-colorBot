@@ -64,6 +64,9 @@ class Config:
         self.rcs_pull_speed = 10  # 下拉速度（1-20）
         self.rcs_activation_delay = 100  # 啟動延遲（50-500ms）
         self.rcs_rapid_click_threshold = 200  # 快速點擊閾值（100-1000ms）
+        # RCS Y 軸解鎖設置
+        self.rcs_release_y_enabled = False  # 是否啟用左鍵按下時解鎖 Y 軸移動
+        self.rcs_release_y_duration = 1.0  # Y 軸解鎖持續時間（0.1~5秒）
         # --- Normal Aim ---
         self.normal_x_speed = 3
         self.normal_y_speed = 3
@@ -135,6 +138,12 @@ class Config:
         self.bezier_ctrl_y_sec = 16.0
         self.bezier_speed_sec = 1.0
         self.bezier_delay_sec = 0.002
+        
+        # --- Silent Mode Parameters ---
+        self.silent_distance = 1.0  # 移動倍率（用於調整移動距離的倍數）
+        self.silent_delay = 0.1  # 兩次開槍的最小間隔（秒）
+        self.silent_move_delay = 0.5  # 移動滑鼠到目標位置的延遲（秒）
+        self.silent_return_delay = 0.5  # 移動回原位置的延遲（秒）
         
         # --- Anti-Smoke Settings ---
         self.anti_smoke_enabled = False  # Main Aimbot Anti-Smoke
@@ -248,6 +257,8 @@ class Config:
             "rcs_pull_speed": self.rcs_pull_speed,
             "rcs_activation_delay": self.rcs_activation_delay,
             "rcs_rapid_click_threshold": self.rcs_rapid_click_threshold,
+            "rcs_release_y_enabled": self.rcs_release_y_enabled,
+            "rcs_release_y_duration": self.rcs_release_y_duration,
             
             # Normal Aim
             "normal_x_speed": self.normal_x_speed,
@@ -313,6 +324,12 @@ class Config:
             "bezier_ctrl_y_sec": self.bezier_ctrl_y_sec,
             "bezier_speed_sec": self.bezier_speed_sec,
             "bezier_delay_sec": self.bezier_delay_sec,
+            
+            # Silent Mode Parameters
+            "silent_distance": self.silent_distance,
+            "silent_delay": self.silent_delay,
+            "silent_move_delay": self.silent_move_delay,
+            "silent_return_delay": self.silent_return_delay,
             
             # Anti-Smoke Settings
             "anti_smoke_enabled": self.anti_smoke_enabled,

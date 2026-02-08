@@ -1099,13 +1099,19 @@ class ViewerApp(ctk.CTk):
                                       self._on_config_normal_smoothfov_changed)
         
         elif current_mode == "Silent":
-            self._add_subtitle_in_frame(sec_params, "SENSITIVITY")
-            self._add_slider_in_frame(sec_params, "X-Speed", "normal_x_speed", 0.1, 2000,
-                                      float(getattr(config, "normal_x_speed", 0.5)),
-                                      self._on_normal_x_speed_changed)
-            self._add_slider_in_frame(sec_params, "Y-Speed", "normal_y_speed", 0.1, 2000,
-                                      float(getattr(config, "normal_y_speed", 0.5)),
-                                      self._on_normal_y_speed_changed)
+            self._add_subtitle_in_frame(sec_params, "SILENT PARAMETERS")
+            self._add_slider_in_frame(sec_params, "Distance (Multiplier)", "silent_distance", 0.1, 10.0,
+                                      float(getattr(config, "silent_distance", 1.0)),
+                                      self._on_silent_distance_changed, is_float=True)
+            self._add_slider_in_frame(sec_params, "Delay", "silent_delay", 0.01, 5.0,
+                                      float(getattr(config, "silent_delay", 0.1)),
+                                      self._on_silent_delay_changed, is_float=True)
+            self._add_slider_in_frame(sec_params, "Move Delay", "silent_move_delay", 0.001, 5.0,
+                                      float(getattr(config, "silent_move_delay", 0.5)),
+                                      self._on_silent_move_delay_changed, is_float=True)
+            self._add_slider_in_frame(sec_params, "Return Delay", "silent_return_delay", 0.001, 5.0,
+                                      float(getattr(config, "silent_return_delay", 0.5)),
+                                      self._on_silent_return_delay_changed, is_float=True)
             self._add_spacer_in_frame(sec_params)
             self._add_subtitle_in_frame(sec_params, "FOV")
             self._add_slider_in_frame(sec_params, "FOV Size", "fovsize", 1, 1000,
@@ -1537,6 +1543,24 @@ class ViewerApp(ctk.CTk):
             int(getattr(config, "rcs_rapid_click_threshold", 200)),
             self._on_rcs_rapid_click_threshold_changed,
             is_float=False
+        )
+        
+        self._add_spacer()
+        self._add_subtitle("Y-AXIS RELEASE")
+        
+        # Release Y-Axis on Fire 開關
+        self.var_rcs_release_y_enabled = tk.BooleanVar(value=getattr(config, "rcs_release_y_enabled", False))
+        self._add_switch("Release Y-Axis on Fire", self.var_rcs_release_y_enabled, self._on_rcs_release_y_enabled_changed)
+        self._checkbox_vars["rcs_release_y_enabled"] = self.var_rcs_release_y_enabled
+        
+        # Release Duration (單滑塊)
+        self._add_slider(
+            "Release Duration (s)", 
+            "rcs_release_y_duration", 
+            0.1, 5.0,
+            float(getattr(config, "rcs_release_y_duration", 1.0)),
+            self._on_rcs_release_y_duration_changed,
+            is_float=True
         )
 
     def _show_config_tab(self):
@@ -2331,6 +2355,11 @@ class ViewerApp(ctk.CTk):
             self.tracker.rcs_pull_speed = config.rcs_pull_speed
             self.tracker.rcs_activation_delay = config.rcs_activation_delay
             self.tracker.rcs_rapid_click_threshold = config.rcs_rapid_click_threshold
+            # Silent Mode
+            self.tracker.silent_distance = getattr(config, "silent_distance", 1.0)
+            self.tracker.silent_delay = getattr(config, "silent_delay", 0.1)
+            self.tracker.silent_move_delay = getattr(config, "silent_move_delay", 0.5)
+            self.tracker.silent_return_delay = getattr(config, "silent_return_delay", 0.5)
             self.tracker.in_game_sens = config.in_game_sens
             self.tracker.color = config.color
             self.tracker.mode = config.mode
@@ -2965,6 +2994,22 @@ class ViewerApp(ctk.CTk):
         config.normal_y_speed = val
         self.tracker.normal_y_speed = val
     
+    def _on_silent_distance_changed(self, val):
+        config.silent_distance = val
+        self.tracker.silent_distance = val
+    
+    def _on_silent_delay_changed(self, val):
+        config.silent_delay = val
+        self.tracker.silent_delay = val
+    
+    def _on_silent_move_delay_changed(self, val):
+        config.silent_move_delay = val
+        self.tracker.silent_move_delay = val
+    
+    def _on_silent_return_delay_changed(self, val):
+        config.silent_return_delay = val
+        self.tracker.silent_return_delay = val
+    
     def _on_config_in_game_sens_changed(self, val): 
         config.in_game_sens = val
         self.tracker.in_game_sens = val
@@ -3065,6 +3110,14 @@ class ViewerApp(ctk.CTk):
         config.rcs_rapid_click_threshold = int(val)
         if hasattr(self, 'tracker'):
             self.tracker.rcs_rapid_click_threshold = int(val)
+    
+    def _on_rcs_release_y_enabled_changed(self):
+        """RCS Release Y-Axis 開關改變"""
+        config.rcs_release_y_enabled = self.var_rcs_release_y_enabled.get()
+    
+    def _on_rcs_release_y_duration_changed(self, val):
+        """RCS Release Y-Axis Duration 改變"""
+        config.rcs_release_y_duration = float(val)
     
     def _on_color_selected(self, val): 
         config.color = val

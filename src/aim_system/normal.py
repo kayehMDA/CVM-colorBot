@@ -13,7 +13,7 @@ from src.utils.mouse import is_button_pressed
 from src.utils.debug_logger import log_move
 from src.utils.activation import check_aimbot_activation
 from .Triggerbot import process_triggerbot
-from .RCS import process_rcs
+from .RCS import process_rcs, check_y_release
 
 
 def calculate_movement(dx, dy, sens, dpi):
@@ -107,19 +107,17 @@ def _apply_silent_aim(dx, dy, tracker, is_sec=False):
     """
     from .silent import threaded_silent_move
     
-    if is_sec:
-        x_speed = float(getattr(config, "normal_x_speed_sec", tracker.normal_x_speed_sec))
-        y_speed = float(getattr(config, "normal_y_speed_sec", tracker.normal_y_speed_sec))
-    else:
-        x_speed = float(getattr(config, "normal_x_speed", tracker.normal_x_speed))
-        y_speed = float(getattr(config, "normal_y_speed", tracker.normal_y_speed))
+    # 轉換為整數（不再應用速度倍數，因為 Silent 模式使用固定移動）
+    dx_raw = int(dx)
+    dy_raw = int(dy)
     
-    dx_raw = int(dx * x_speed)
-    dy_raw = int(dy * y_speed)
+    # 使用 Silent 模式的延遲參數
+    move_delay = getattr(tracker, "silent_move_delay", 0.5)
+    return_delay = getattr(tracker, "silent_return_delay", 0.5)
     
     threading.Thread(
         target=threaded_silent_move,
-        args=(tracker.controller, dx_raw, dy_raw),
+        args=(tracker.controller, dx_raw, dy_raw, move_delay, return_delay),
         daemon=True
     ).start()
 
@@ -493,6 +491,10 @@ def process_normal_mode(targets, frame, img, tracker):
                     if rcs_active:
                         dy = 0
                     
+                    # Y 軸解鎖功能（左鍵按下時解鎖 Y 軸控制）
+                    if check_y_release():
+                        dy = 0
+                    
                     # 根據 Main 模式調度
                     _dispatch_aimbot(dx, dy, distance_to_center, mode_main, tracker, is_sec=False)
                     main_aimbot_active = True
@@ -521,6 +523,10 @@ def process_normal_mode(targets, frame, img, tracker):
                         
                         # RCS 整合
                         if rcs_active:
+                            dy = 0
+                        
+                        # Y 軸解鎖功能（左鍵按下時解鎖 Y 軸控制）
+                        if check_y_release():
                             dy = 0
                         
                         # 根據 Sec 模式調度

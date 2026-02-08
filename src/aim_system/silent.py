@@ -9,7 +9,7 @@ from src.utils.config import config
 from .RCS import process_rcs
 
 
-def threaded_silent_move(controller, dx, dy):
+def threaded_silent_move(controller, dx, dy, move_delay, return_delay):
     """
     Silent 模式的移動-點擊-恢復函數
     
@@ -20,11 +20,13 @@ def threaded_silent_move(controller, dx, dy):
         controller: 滑鼠控制器實例
         dx: X 方向的移動距離
         dy: Y 方向的移動距離
+        move_delay: 移動滑鼠到目標位置的延遲（秒）
+        return_delay: 移動回原位置的延遲（秒）
     """
     controller.move(dx, dy)
-    time.sleep(0.001)
+    time.sleep(move_delay)
     controller.click()
-    time.sleep(0.001)
+    time.sleep(return_delay)
     controller.move(-dx, -dy)
 
 
@@ -34,8 +36,8 @@ def process_silent_mode(targets, frame, tracker):
     
     Silent 模式的特點：
     - 選擇最佳目標（距離中心最近的）
-    - 計算移動距離
-    - 應用速度倍數
+    - 檢查兩次開槍間隔
+    - 計算移動距離並應用移動倍率
     - 在獨立線程中執行移動-點擊-恢復操作
     
     Args:
@@ -48,6 +50,11 @@ def process_silent_mode(targets, frame, tracker):
     """
     if not targets:
         return  # 避免沒有目標時崩潰
+    
+    # 檢查兩次開槍間隔
+    current_time = time.time()
+    if current_time - tracker.last_silent_click_time < tracker.silent_delay:
+        return  # 未達到最小開槍間隔，跳過此次開槍
     
     # 計算螢幕中心
     center_x = frame.xres / 2.0
@@ -89,16 +96,17 @@ def process_silent_mode(targets, frame, tracker):
     if rcs_active:
         dy = 0  # RCS 啟動時，Aimbot 僅發送水平移動
     
-    # 轉換為整數並應用速度倍數
-    dx_raw = int(dx)
-    dy_raw = int(dy)
-    dx_raw *= tracker.normal_x_speed
-    dy_raw *= tracker.normal_y_speed
+    # 應用移動倍率並轉換為整數
+    dx_raw = int(dx * tracker.silent_distance)
+    dy_raw = int(dy * tracker.silent_distance)
+    
+    # 更新最後開槍時間
+    tracker.last_silent_click_time = current_time
     
     # 在獨立線程中執行 Silent 移動（移動-點擊-恢復）
     threading.Thread(
         target=threaded_silent_move,
-        args=(tracker.controller, dx_raw, dy_raw),
+        args=(tracker.controller, dx_raw, dy_raw, tracker.silent_move_delay, tracker.silent_return_delay),
         daemon=True
     ).start()
 
