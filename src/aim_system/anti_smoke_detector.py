@@ -6,13 +6,18 @@ Enhanced with shape analysis and time-motion tracking system
 
 import numpy as np
 import time
+import importlib
 from collections import defaultdict
 
+ConvexHull = None
 try:
-    from scipy.spatial import ConvexHull
-    SCIPY_AVAILABLE = True
-except ImportError:
+    _scipy_spatial = importlib.import_module("scipy.spatial")
+    ConvexHull = getattr(_scipy_spatial, "ConvexHull", None)
+    SCIPY_AVAILABLE = ConvexHull is not None
+except Exception:
     SCIPY_AVAILABLE = False
+
+if not SCIPY_AVAILABLE:
     print("Warning: scipy not found. Convexity analysis will be done with simple method.")
 
 

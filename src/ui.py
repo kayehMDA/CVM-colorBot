@@ -8,6 +8,7 @@ import os
 import json
 import cv2
 import threading
+import webbrowser
 from PIL import Image
 from functools import partial
 
@@ -4587,6 +4588,137 @@ class ViewerApp(ctk.CTk):
     def _show_update_dialog(self, latest_version, update_info):
         """Show update dialog with update information"""
         UpdateDialog(self, latest_version, update_info)
+
+
+class UpdateDialog(ctk.CTkToplevel):
+    """Simple update prompt dialog."""
+
+    def __init__(self, parent, latest_version, update_info):
+        super().__init__(parent)
+        self.parent = parent
+        self.latest_version = str(latest_version or "unknown")
+        self.update_info = update_info if isinstance(update_info, dict) else {}
+
+        self.title("Update Available")
+        self.geometry("520x380")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        self.update_idletasks()
+        x = parent.winfo_x() + max(0, (parent.winfo_width() - 520) // 2)
+        y = parent.winfo_y() + max(0, (parent.winfo_height() - 380) // 2)
+        self.geometry(f"+{x}+{y}")
+
+        self._build_ui()
+
+    def _pick_text(self):
+        for key in ("notes", "changelog", "description", "message"):
+            value = self.update_info.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return "A new version is available."
+
+    def _pick_url(self):
+        for key in ("download_url", "release_url", "url"):
+            value = self.update_info.get(key)
+            if isinstance(value, str) and value.startswith(("http://", "https://")):
+                return value
+        return None
+
+    def _build_ui(self):
+        frame = ctk.CTkFrame(self, fg_color=COLOR_BG, corner_radius=0)
+        frame.pack(fill="both", expand=True)
+
+        ctk.CTkLabel(
+            frame,
+            text=f"New Version: v{self.latest_version}",
+            font=("Roboto", 16, "bold"),
+            text_color=COLOR_TEXT,
+        ).pack(anchor="w", padx=20, pady=(18, 8))
+
+        notes_box = ctk.CTkTextbox(
+            frame,
+            fg_color=COLOR_SURFACE,
+            text_color=COLOR_TEXT,
+            border_width=0,
+            corner_radius=8,
+            height=220,
+        )
+        notes_box.pack(fill="both", expand=True, padx=20, pady=(0, 12))
+        notes_box.insert("1.0", self._pick_text())
+        notes_box.configure(state="disabled")
+
+        btn_row = ctk.CTkFrame(frame, fg_color="transparent")
+        btn_row.pack(fill="x", padx=20, pady=(0, 18))
+
+        ctk.CTkButton(
+            btn_row,
+            text="Later",
+            command=self.destroy,
+            fg_color="transparent",
+            border_width=1,
+            border_color=COLOR_BORDER,
+            hover_color=COLOR_SURFACE,
+            text_color=COLOR_TEXT_DIM,
+            width=90,
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            btn_row,
+            text="Skip This",
+            command=self._on_skip,
+            fg_color="transparent",
+            border_width=1,
+            border_color=COLOR_BORDER,
+            hover_color=COLOR_SURFACE,
+            text_color=COLOR_TEXT_DIM,
+            width=100,
+        ).pack(side="left", padx=(10, 0))
+
+        ctk.CTkButton(
+            btn_row,
+            text="Never Check",
+            command=self._on_never,
+            fg_color="transparent",
+            border_width=1,
+            border_color=COLOR_BORDER,
+            hover_color=COLOR_SURFACE,
+            text_color=COLOR_DANGER,
+            width=110,
+        ).pack(side="left", padx=(10, 0))
+
+        url = self._pick_url()
+        if url:
+            ctk.CTkButton(
+                btn_row,
+                text="Open Release",
+                command=lambda: self._open_url(url),
+                fg_color=COLOR_TEXT,
+                hover_color=COLOR_ACCENT_HOVER,
+                text_color=COLOR_BG,
+                width=120,
+            ).pack(side="right")
+
+    def _on_skip(self):
+        try:
+            self.parent.update_checker.skip_update()
+        except Exception:
+            pass
+        self.destroy()
+
+    def _on_never(self):
+        try:
+            self.parent.update_checker.set_never_update(True)
+        except Exception:
+            pass
+        self.destroy()
+
+    def _open_url(self, url: str):
+        try:
+            webbrowser.open(url, new=2)
+        except Exception:
+            pass
 
 
 class SettingsWindow(ctk.CTkToplevel):
