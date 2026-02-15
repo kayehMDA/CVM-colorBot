@@ -79,6 +79,11 @@ class ViewerApp(ctk.CTk):
         self._slider_widgets = {}
         self._checkbox_vars = {}
         self._option_widgets = {}
+        self._active_tab_name = "General"
+        raw_section_states = getattr(config, "ui_collapsible_states", {})
+        self._collapsible_section_states = (
+            dict(raw_section_states) if isinstance(raw_section_states, dict) else {}
+        )
         self.current_frame = None
         
         # 鍒濆鍖栨檪鎳夌敤 config 涓殑 capture_mode
@@ -306,7 +311,7 @@ class ViewerApp(ctk.CTk):
 
         self.hardware_conn_label = ctk.CTkLabel(
             bottom_frame,
-            text="Hardware Status: 馃敶 Disconnected",
+            text="Hardware Status: Disconnected",
             text_color=COLOR_DANGER,
             font=("Roboto", 10),
             anchor="w",
@@ -340,7 +345,7 @@ class ViewerApp(ctk.CTk):
         # 瑷疆鎸夐垥
         settings_btn = ctk.CTkButton(
             bottom_frame,
-            text="鈿欙笍 settings",
+            text="Settings",
             command=self._open_settings_window,
             fg_color="transparent",
             hover_color=COLOR_BORDER,
@@ -374,6 +379,7 @@ class ViewerApp(ctk.CTk):
         )
 
     def _handle_nav_click(self, text, command):
+        self._active_tab_name = str(text)
         for btn_text, btn in self.nav_buttons.items():
             if btn_text == text:
                 btn.configure(text_color=COLOR_ACCENT) # 鍍呮敼璁婃枃瀛楅鑹?
@@ -401,6 +407,7 @@ class ViewerApp(ctk.CTk):
     # --- 闋侀潰鍏у ---
 
     def _show_general_tab(self):
+        self._active_tab_name = "General"
         self._clear_content()
         self._add_title("General")
 
@@ -485,7 +492,12 @@ class ViewerApp(ctk.CTk):
         
         self._add_spacer_in_frame(sec_settings)
         
-        self.color_option = self._add_option_row_in_frame(sec_settings, "Target Color", ["yellow", "purple", "custom"], self._on_color_selected)
+        self.color_option = self._add_option_row_in_frame(
+            sec_settings,
+            "Target Color",
+            ["yellow", "purple", "red", "custom"],
+            self._on_color_selected,
+        )
         self._option_widgets["color"] = self.color_option
         # 瑷疆鐣跺墠鍊?
         current_color = getattr(config, "color", "yellow")
@@ -556,15 +568,15 @@ class ViewerApp(ctk.CTk):
                                   int(getattr(config, "detection_min_contour_points", 5)),
                                   self._on_detection_min_contour_points_changed)
         
-        # 鈹€鈹€ MOUSE LOCK (collapsible) 鈹€鈹€
+        # MOUSE LOCK (collapsible)
         mouse_lock_tooltip_text = (
-            "鈥?Lock Main Aimbot X-Axis: Blocks physical mouse movement on X-axis when Main Aimbot is active. "
+            "- Lock Main Aimbot X-Axis: Blocks physical mouse movement on X-axis when Main Aimbot is active. "
             "Only aimbot-controlled movements will be applied.\n\n"
-            "鈥?Lock Main Aimbot Y-Axis: Blocks physical mouse movement on Y-axis when Main Aimbot is active. "
+            "- Lock Main Aimbot Y-Axis: Blocks physical mouse movement on Y-axis when Main Aimbot is active. "
             "Only aimbot-controlled movements will be applied.\n\n"
-            "鈥?Lock Sec Aimbot X-Axis: Blocks physical mouse movement on X-axis when Sec Aimbot is active. "
+            "- Lock Sec Aimbot X-Axis: Blocks physical mouse movement on X-axis when Sec Aimbot is active. "
             "Only aimbot-controlled movements will be applied.\n\n"
-            "鈥?Lock Sec Aimbot Y-Axis: Blocks physical mouse movement on Y-axis when Sec Aimbot is active. "
+            "- Lock Sec Aimbot Y-Axis: Blocks physical mouse movement on Y-axis when Sec Aimbot is active. "
             "Only aimbot-controlled movements will be applied.\n\n"
             "Note: The lock will automatically release when the aimbot button is released or aimbot stops moving."
         )
@@ -1883,6 +1895,7 @@ class ViewerApp(ctk.CTk):
                 self.capture_card_center_label.configure(text="Center: (0, 0)")
 
     def _show_aimbot_tab(self):
+        self._active_tab_name = "Aimbot"
         self._clear_content()
         self._add_title("Aimbot")
         
@@ -1903,7 +1916,12 @@ class ViewerApp(ctk.CTk):
         self.mode_option.set(current_mode)
         
         # 鈹€鈹€ MODE PARAMETERS (collapsible) 鈹€鈹€
-        sec_params = self._create_collapsible_section(self.content_frame, f"{current_mode} Parameters", initially_open=True)
+        sec_params = self._create_collapsible_section(
+            self.content_frame,
+            f"{current_mode} Parameters",
+            initially_open=True,
+            state_key="mode_parameters",
+        )
         
         if current_mode == "Normal":
             self._add_subtitle_in_frame(sec_params, "SENSITIVITY")
@@ -2069,6 +2087,7 @@ class ViewerApp(ctk.CTk):
             self.aimbot_activation_type_option.set("Hold to Enable")
 
     def _show_sec_aimbot_tab(self):
+        self._active_tab_name = "Sec Aimbot"
         self._clear_content()
         self._add_title("Secondary Aimbot")
         
@@ -2089,7 +2108,12 @@ class ViewerApp(ctk.CTk):
         self.mode_option_sec.set(current_mode_sec)
         
         # 鈹€鈹€ MODE PARAMETERS (collapsible) 鈹€鈹€
-        sec_params = self._create_collapsible_section(self.content_frame, f"{current_mode_sec} Parameters", initially_open=True)
+        sec_params = self._create_collapsible_section(
+            self.content_frame,
+            f"{current_mode_sec} Parameters",
+            initially_open=True,
+            state_key="mode_parameters",
+        )
         
         if current_mode_sec == "Normal":
             self._add_subtitle_in_frame(sec_params, "SENSITIVITY")
@@ -2249,6 +2273,7 @@ class ViewerApp(ctk.CTk):
             self.aimbot_activation_type_option_sec.set("Hold to Enable")
 
     def _show_tb_tab(self):
+        self._active_tab_name = "Trigger"
         self._clear_content()
         self._add_title("Triggerbot")
         
@@ -2378,6 +2403,7 @@ class ViewerApp(ctk.CTk):
 
     def _show_rcs_tab(self):
         """椤ず RCS 瑷疆妯欑堡"""
+        self._active_tab_name = "RCS"
         self._clear_content()
         self._add_title("RCS (Recoil Control System)")
         
@@ -2438,6 +2464,7 @@ class ViewerApp(ctk.CTk):
         )
 
     def _show_config_tab(self):
+        self._active_tab_name = "Config"
         self._clear_content()
         self._add_title("Configuration")
         
@@ -2467,6 +2494,7 @@ class ViewerApp(ctk.CTk):
 
     def _show_debug_tab(self):
         """椤ず Debug tab - 椤ず婊戦紶绉诲嫊鍜岄粸鎿婃棩瑾?"""
+        self._active_tab_name = "Debug"
         self._clear_content()
         self._add_title("Debug")
         
@@ -2688,7 +2716,16 @@ class ViewerApp(ctk.CTk):
         widget.bind("<Enter>", show_tooltip)
         widget.bind("<Leave>", hide_tooltip)
 
-    def _create_collapsible_section(self, parent, title, initially_open=True, auto_pack=True, tooltip_text=None):
+    def _get_collapsible_state_key(self, title, state_key=None):
+        tab_key = str(getattr(self, "_active_tab_name", "General")).strip().lower().replace(" ", "_")
+        section_key = str(state_key or title).strip().lower().replace(" ", "_")
+        return f"{tab_key}:{section_key}"
+
+    def _set_collapsible_state(self, cache_key, is_open):
+        self._collapsible_section_states[str(cache_key)] = bool(is_open)
+        config.ui_collapsible_states = dict(self._collapsible_section_states)
+
+    def _create_collapsible_section(self, parent, title, initially_open=True, auto_pack=True, tooltip_text=None, state_key=None):
         """
         寤虹珛鍙睍闁?鏀惰捣鐨?section銆?
         
@@ -2707,9 +2744,12 @@ class ViewerApp(ctk.CTk):
             container.pack(fill="x", pady=(5, 0))
         
         content = ctk.CTkFrame(container, fg_color="transparent")
-        
-        is_open = [initially_open]
-        arrow_text = "▼" if initially_open else "▶"
+
+        cache_key = self._get_collapsible_state_key(title, state_key=state_key)
+        initial_open_state = self._collapsible_section_states.get(cache_key, initially_open)
+        initial_open_state = bool(initial_open_state)
+        is_open = [initial_open_state]
+        arrow_text = "▼" if initial_open_state else "▶"
         
         header = ctk.CTkFrame(container, fg_color=COLOR_SURFACE, corner_radius=4, height=30)
         header.pack(fill="x")
@@ -2740,17 +2780,20 @@ class ViewerApp(ctk.CTk):
                 content.pack_forget()
                 arrow_label.configure(text="▶")
                 is_open[0] = False
+                self._set_collapsible_state(cache_key, False)
             else:
                 content.pack(fill="x", padx=(8, 0), pady=(2, 0))
                 arrow_label.configure(text="▼")
                 is_open[0] = True
+                self._set_collapsible_state(cache_key, True)
         
         header.bind("<Button-1>", toggle)
         arrow_label.bind("<Button-1>", toggle)
         title_label.bind("<Button-1>", toggle)
         
-        if initially_open:
+        if initial_open_state:
             content.pack(fill="x", padx=(8, 0), pady=(2, 0))
+        self._set_collapsible_state(cache_key, initial_open_state)
         
         if auto_pack:
             return content
@@ -3892,9 +3935,9 @@ class ViewerApp(ctk.CTk):
 
         if hasattr(self, "hardware_conn_label") and self.hardware_conn_label.winfo_exists():
             if connected:
-                self.hardware_conn_label.configure(text="Hardware Status: 馃煝 Connected", text_color=COLOR_SUCCESS)
+                self.hardware_conn_label.configure(text="Hardware Status: Connected", text_color=COLOR_SUCCESS)
             else:
-                self.hardware_conn_label.configure(text="Hardware Status: 馃敶 Disconnected", text_color=COLOR_DANGER)
+                self.hardware_conn_label.configure(text="Hardware Status: Disconnected", text_color=COLOR_DANGER)
 
         if (
             getattr(self, "_hardware_info_expanded", False)

@@ -27,6 +27,7 @@ def load_model(model_path=None):
         # Wider HSV presets to better tolerate compression/lighting variance.
         yellow = [18, 80, 80, 40, 255, 255]
         purple = [125, 60, 80, 170, 255, 255]
+        red = [0, 95, 95, 4, 235, 255]
 
         if config.color == "yellow":
             HSV_MIN = np.array([yellow[0], yellow[1], yellow[2]], dtype=np.uint8)
@@ -36,6 +37,10 @@ def load_model(model_path=None):
             HSV_MIN = np.array([purple[0], purple[1], purple[2]], dtype=np.uint8)
             HSV_MAX = np.array([purple[3], purple[4], purple[5]], dtype=np.uint8)
             log_print("Loaded HSV for purple")
+        elif config.color == "red":
+            HSV_MIN = np.array([red[0], red[1], red[2]], dtype=np.uint8)
+            HSV_MAX = np.array([red[3], red[4], red[5]], dtype=np.uint8)
+            log_print("Loaded HSV for red")
         elif config.color == "custom":
             HSV_MIN = np.array(
                 [

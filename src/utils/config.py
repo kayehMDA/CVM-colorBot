@@ -210,6 +210,8 @@ class Config:
         self.show_target_count = True
         self.show_crosshair = True
         self.show_distance_text = True
+        # Persist UI collapsible section open/closed state per tab.
+        self.ui_collapsible_states = {}
         
         # --- Capture Settings ---
         self.udp_ip = "127.0.0.1"
@@ -452,6 +454,7 @@ class Config:
             "show_target_count": self.show_target_count,
             "show_crosshair": self.show_crosshair,
             "show_distance_text": self.show_distance_text,
+            "ui_collapsible_states": self.ui_collapsible_states,
             
             # Capture Settings
             "udp_ip": self.udp_ip,
@@ -518,6 +521,12 @@ class Config:
         if not net_uuid and net_mac:
             self.net_uuid = net_mac
         self.net_mac = self.net_uuid
+        # Ensure UI section state is always a dict[str, bool].
+        raw_states = getattr(self, "ui_collapsible_states", {})
+        if isinstance(raw_states, dict):
+            self.ui_collapsible_states = {str(k): bool(v) for k, v in raw_states.items()}
+        else:
+            self.ui_collapsible_states = {}
     
     def save_to_file(self, filename="config.json"):
         """淇濆瓨閰嶇疆鍒版枃浠?"""
