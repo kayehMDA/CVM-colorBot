@@ -42,6 +42,17 @@ BUTTONS = {
     4: 'Side Mouse 5 Button'
 }
 
+TRIGGER_TYPE_DISPLAY = {
+    "current": "Current",
+    "rgb": "RGB Trigger",
+}
+
+RGB_TRIGGER_PROFILE_DISPLAY = {
+    "red": "Red",
+    "yellow": "Yellow",
+    "purple": "Purple",
+}
+
 class ViewerApp(ctk.CTk):
     """涓绘噳鐢ㄧ▼寮?UI 椤?(Ultra Minimalist)"""
     

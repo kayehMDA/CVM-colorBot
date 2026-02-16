@@ -86,6 +86,7 @@ class Config:
 
         self.fovsize = 100
         self.tbfovsize = 5 
+        self.trigger_type = "current"  # current, rgb
         # Triggerbot delay range (闅ㄦ绡勫湇锛岀)
         self.tbdelay_min = 0.08
         self.tbdelay_max = 0.15
@@ -95,6 +96,14 @@ class Config:
         # Triggerbot 閫ｇ櫦瑷疆锛堢瘎鍦嶏級
         self.tbcooldown_min = 0.0  # 鍐峰嵒鏅傞枔鏈€灏忓€硷紙绉掞級
         self.tbcooldown_max = 0.0  # 鍐峰嵒鏅傞枔鏈€澶у€硷紙绉掞級
+        # RGB Trigger delay/hold/cooldown
+        self.rgb_tbdelay_min = 0.08  # seconds
+        self.rgb_tbdelay_max = 0.15  # seconds
+        self.rgb_tbhold_min = 40  # ms
+        self.rgb_tbhold_max = 60  # ms
+        self.rgb_tbcooldown_min = 0.0  # seconds
+        self.rgb_tbcooldown_max = 0.0  # seconds
+        self.rgb_color_profile = "purple"  # red, yellow, purple
         self.tbburst_count_min = 1  # 閫ｇ櫦娆℃暩鏈€灏忓€?
         self.tbburst_count_max = 1  # 閫ｇ櫦娆℃暩鏈€澶у€?
         self.tbburst_interval_min = 0.0  # 閫ｇ櫦闁撻殧鏈€灏忓€硷紙姣锛?
@@ -349,12 +358,20 @@ class Config:
             "mode_sec": self.mode_sec,
             "fovsize": self.fovsize,
             "tbfovsize": self.tbfovsize,
+            "trigger_type": self.trigger_type,
             "tbdelay_min": self.tbdelay_min,
             "tbdelay_max": self.tbdelay_max,
             "tbhold_min": self.tbhold_min,
             "tbhold_max": self.tbhold_max,
             "tbcooldown_min": self.tbcooldown_min,
             "tbcooldown_max": self.tbcooldown_max,
+            "rgb_tbdelay_min": self.rgb_tbdelay_min,
+            "rgb_tbdelay_max": self.rgb_tbdelay_max,
+            "rgb_tbhold_min": self.rgb_tbhold_min,
+            "rgb_tbhold_max": self.rgb_tbhold_max,
+            "rgb_tbcooldown_min": self.rgb_tbcooldown_min,
+            "rgb_tbcooldown_max": self.rgb_tbcooldown_max,
+            "rgb_color_profile": self.rgb_color_profile,
             "tbburst_count_min": self.tbburst_count_min,
             "tbburst_count_max": self.tbburst_count_max,
             "tbburst_interval_min": self.tbburst_interval_min,

@@ -47,6 +47,7 @@ AGENTS.md
 # Temporary files
 *.tmp
 *.temp
+.tmp*
 viewer.kv
 tess.py
 
@@ -74,3 +75,25 @@ logs/
 .github/GENERATE_SSH_KEY.md
 .github/SYNC_SETUP.md
 .github/TROUBLESHOOTING.md
+
+# Mouse API folders
+# kmB - ignore entire folder
+src/utils/mouse/API/kmB/
+
+# kmboxA - ignore all except .pyd files
+src/utils/mouse/API/kmboxA/
+!src/utils/mouse/API/kmboxA/**/*.pyd
+
+# arduino - ignore entire folder
+src/utils/mouse/API/arduino/
+
+# DHZ - ignore entire folder
+src/utils/mouse/API/DHZ/
+
+# makxdv2 - ignore entire folder
+src/utils/mouse/API/makxdv2/
+
+# Net - ignore all except .pyd and .dll files
+src/utils/mouse/API/Net/
+!src/utils/mouse/API/Net/**/*.pyd
+!src/utils/mouse/API/Net/**/*.dll
