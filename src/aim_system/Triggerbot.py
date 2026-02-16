@@ -25,6 +25,7 @@ _triggerbot_state = {
     "confirm_count": 0,
     "activation_last_pressed": False,
     "activation_toggle_state": False,
+    "active_trigger_type": "current",
     "burst_lock": threading.Lock(),
 }
 
@@ -58,6 +59,18 @@ def _safe_button_pressed(value):
         return bool(is_button_pressed(int(value)))
     except Exception:
         return False
+
+
+def _ensure_bgr(roi):
+    if roi is None or roi.size == 0:
+        return roi
+    if len(roi.shape) == 2:
+        return cv2.cvtColor(roi, cv2.COLOR_GRAY2BGR)
+    if roi.shape[2] == 3:
+        return roi
+    if roi.shape[2] == 4:
+        return cv2.cvtColor(roi, cv2.COLOR_BGRA2BGR)
+    return roi[:, :, :3]
 
 
 def evaluate_trigger_metrics(pixel_count, roi_area, min_pixels, min_ratio):
@@ -136,6 +149,13 @@ def _resolve_activation_mode(primary_valid, secondary_valid, selected_tb_btn, se
     return active, is_pressed, None
 
 
+def _resolve_trigger_type():
+    trigger_type = str(getattr(config, "trigger_type", "current")).strip().lower()
+    if trigger_type not in {"current", "rgb"}:
+        trigger_type = "current"
+    return trigger_type
+
+
 def _execute_burst_sequence(
     controller,
     burst_count_min,
@@ -203,6 +223,7 @@ def process_triggerbot(
     tbburst_interval_min,
     tbburst_interval_max,
     targets=None,
+    source_img=None,
 ):
     if not getattr(config, "enabletb", False):
         _reset_tracking_state(reset_burst=True)
@@ -210,6 +231,33 @@ def process_triggerbot(
         return "DISABLED"
     if cv2 is None:
         return "ERROR: OpenCV unavailable"
+
+    trigger_type = _resolve_trigger_type()
+    previous_trigger_type = str(_triggerbot_state.get("active_trigger_type", "current")).strip().lower()
+    if previous_trigger_type != trigger_type:
+        _reset_tracking_state(reset_burst=True)
+        try:
+            controller.release()
+        except Exception:
+            pass
+        _close_trigger_debug_windows()
+    _triggerbot_state["active_trigger_type"] = trigger_type
+
+    if trigger_type == "rgb":
+        try:
+            from .RGBTrigger import process_rgb_triggerbot
+
+            rgb_source_img = source_img if source_img is not None else img
+            return process_rgb_triggerbot(
+                frame=frame,
+                img=rgb_source_img,
+                controller=controller,
+                state_dict=_triggerbot_state,
+                close_debug_windows=_close_trigger_debug_windows,
+            )
+        except Exception as exc:
+            log_print("[RGB Trigger dispatch error]", exc)
+            return f"ERROR: {str(exc)}"
 
     selected_tb_btn = getattr(config, "selected_tb_btn", None)
     selected_2_tb = getattr(config, "selected_2_tb", None)
@@ -245,6 +293,7 @@ def process_triggerbot(
         return "BUTTON_NOT_PRESSED"
 
     try:
+        detect_img = source_img if source_img is not None else img
         cx0, cy0 = int(frame.xres // 2), int(frame.yres // 2)
         tb_fov = float(getattr(config, "tbfovsize", 0))
         if not _has_target_in_trigger_fov(targets, tb_fov):
@@ -260,13 +309,14 @@ def process_triggerbot(
         # Use Trigger FOV as the only ROI scale source.
         roi_size = max(1, int(tb_fov)) if tb_fov > 0 else 8
         x1, y1 = max(cx0 - roi_size, 0), max(cy0 - roi_size, 0)
-        x2, y2 = min(cx0 + roi_size, img.shape[1]), min(cy0 + roi_size, img.shape[0])
-        roi = img[y1:y2, x1:x2]
+        x2, y2 = min(cx0 + roi_size, detect_img.shape[1]), min(cy0 + roi_size, detect_img.shape[0])
+        roi = detect_img[y1:y2, x1:x2]
         if roi.size == 0:
             _close_trigger_debug_windows()
             return "INVALID_ROI"
 
-        hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+        roi_bgr = _ensure_bgr(roi)
+        hsv = cv2.cvtColor(roi_bgr, cv2.COLOR_BGR2HSV)
         hsv_upper = model[1]
         hsv_lower = model[0]
         mask = cv2.inRange(hsv, hsv_lower, hsv_upper)

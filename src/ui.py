@@ -2363,114 +2363,206 @@ class ViewerApp(ctk.CTk):
         self._active_tab_name = "Trigger"
         self._clear_content()
         self._add_title("Triggerbot")
-        
-        self.var_enabletb = tk.BooleanVar(value=getattr(config, "enabletb", False))
-        self._add_switch("Enable Triggerbot", self.var_enabletb, self._on_enabletb_changed)
-        self._checkbox_vars["enabletb"] = self.var_enabletb
-        
-        self._add_spacer()
-        self._add_subtitle("PARAMETERS")
-        # 寰?config 璁€鍙栫暥鍓嶅€?
-        self._add_slider("FOV Size", "tbfovsize", 1, 300, 
-                        float(getattr(config, "tbfovsize", 70)), 
-                        self._on_tbfovsize_changed)
-        
-        # Delay Range (闆欐粦濉?
-        self._add_range_slider(
-            "Delay Range (s)", 
-            "tbdelay", 
-            0.0, 1.0,
-            float(getattr(config, "tbdelay_min", 0.08)),
-            float(getattr(config, "tbdelay_max", 0.15)),
-            self._on_tbdelay_range_changed,
-            is_float=True
-        )
-        
-        # Hold Range (闆欐粦濉?
-        self._add_range_slider(
-            "Hold Range (ms)", 
-            "tbhold", 
-            5, 500,
-            float(getattr(config, "tbhold_min", 40)),
-            float(getattr(config, "tbhold_max", 60)),
-            self._on_tbhold_range_changed,
-            is_float=False
-        )
 
-        self._add_slider(
-            "Min Pixels",
-            "trigger_min_pixels",
-            1,
-            200,
-            int(getattr(config, "trigger_min_pixels", 4)),
-            self._on_trigger_min_pixels_changed,
-            is_float=False,
+        current_trigger_type = str(getattr(config, "trigger_type", "current")).strip().lower()
+        if current_trigger_type not in TRIGGER_TYPE_DISPLAY:
+            current_trigger_type = "current"
+            config.trigger_type = current_trigger_type
+
+        sec_core = self._create_collapsible_section(self.content_frame, "Core", initially_open=True)
+        self.var_enabletb = tk.BooleanVar(value=getattr(config, "enabletb", False))
+        self._add_switch_in_frame(sec_core, "Enable Triggerbot", self.var_enabletb, self._on_enabletb_changed)
+        self._checkbox_vars["enabletb"] = self.var_enabletb
+
+        self.trigger_type_option = self._add_option_row_in_frame(
+            sec_core,
+            "Trigger Type",
+            list(TRIGGER_TYPE_DISPLAY.values()),
+            self._on_trigger_type_selected,
         )
-        self._add_slider(
-            "Min Ratio",
-            "trigger_min_ratio",
-            0.0,
-            1.0,
-            float(getattr(config, "trigger_min_ratio", 0.03)),
-            self._on_trigger_min_ratio_changed,
-            is_float=True,
+        self._option_widgets["trigger_type"] = self.trigger_type_option
+        self.trigger_type_option.set(TRIGGER_TYPE_DISPLAY.get(current_trigger_type, "Current"))
+
+        if current_trigger_type == "rgb":
+            sec_rgb = self._create_collapsible_section(self.content_frame, "RGB Parameters", initially_open=True)
+
+            self._add_slider_in_frame(
+                sec_rgb,
+                "FOV Size",
+                "tbfovsize",
+                1,
+                300,
+                float(getattr(config, "tbfovsize", 70)),
+                self._on_tbfovsize_changed,
+            )
+
+            self.rgb_color_profile_option = self._add_option_row_in_frame(
+                sec_rgb,
+                "RGB Preset",
+                list(RGB_TRIGGER_PROFILE_DISPLAY.values()),
+                self._on_rgb_color_profile_selected,
+            )
+            self._option_widgets["rgb_color_profile"] = self.rgb_color_profile_option
+            current_rgb_profile = str(getattr(config, "rgb_color_profile", "purple")).strip().lower()
+            if current_rgb_profile not in RGB_TRIGGER_PROFILE_DISPLAY:
+                current_rgb_profile = "purple"
+                config.rgb_color_profile = "purple"
+            self.rgb_color_profile_option.set(
+                RGB_TRIGGER_PROFILE_DISPLAY.get(current_rgb_profile, "Purple")
+            )
+
+            self._add_range_slider_in_frame(
+                sec_rgb,
+                "Delay Range (s)",
+                "rgb_tbdelay",
+                0.0,
+                1.0,
+                float(getattr(config, "rgb_tbdelay_min", 0.08)),
+                float(getattr(config, "rgb_tbdelay_max", 0.15)),
+                self._on_rgb_tbdelay_range_changed,
+                is_float=True,
+            )
+            self._add_range_slider_in_frame(
+                sec_rgb,
+                "Hold Range (ms)",
+                "rgb_tbhold",
+                5,
+                500,
+                float(getattr(config, "rgb_tbhold_min", 40)),
+                float(getattr(config, "rgb_tbhold_max", 60)),
+                self._on_rgb_tbhold_range_changed,
+                is_float=False,
+            )
+            self._add_range_slider_in_frame(
+                sec_rgb,
+                "Cooldown Range (s)",
+                "rgb_tbcooldown",
+                0.0,
+                5.0,
+                float(getattr(config, "rgb_tbcooldown_min", 0.0)),
+                float(getattr(config, "rgb_tbcooldown_max", 0.0)),
+                self._on_rgb_tbcooldown_range_changed,
+                is_float=True,
+            )
+        else:
+            sec_params = self._create_collapsible_section(self.content_frame, "Parameters", initially_open=True)
+            self._add_slider_in_frame(
+                sec_params,
+                "FOV Size",
+                "tbfovsize",
+                1,
+                300,
+                float(getattr(config, "tbfovsize", 70)),
+                self._on_tbfovsize_changed,
+            )
+            self._add_range_slider_in_frame(
+                sec_params,
+                "Delay Range (s)",
+                "tbdelay",
+                0.0,
+                1.0,
+                float(getattr(config, "tbdelay_min", 0.08)),
+                float(getattr(config, "tbdelay_max", 0.15)),
+                self._on_tbdelay_range_changed,
+                is_float=True,
+            )
+            self._add_range_slider_in_frame(
+                sec_params,
+                "Hold Range (ms)",
+                "tbhold",
+                5,
+                500,
+                float(getattr(config, "tbhold_min", 40)),
+                float(getattr(config, "tbhold_max", 60)),
+                self._on_tbhold_range_changed,
+                is_float=False,
+            )
+
+            sec_conditions = self._create_collapsible_section(
+                self.content_frame,
+                "Trigger Conditions",
+                initially_open=False,
+            )
+            self._add_slider_in_frame(
+                sec_conditions,
+                "Min Pixels",
+                "trigger_min_pixels",
+                1,
+                200,
+                int(getattr(config, "trigger_min_pixels", 4)),
+                self._on_trigger_min_pixels_changed,
+                is_float=False,
+            )
+            self._add_slider_in_frame(
+                sec_conditions,
+                "Min Ratio",
+                "trigger_min_ratio",
+                0.0,
+                1.0,
+                float(getattr(config, "trigger_min_ratio", 0.03)),
+                self._on_trigger_min_ratio_changed,
+                is_float=True,
+            )
+            self._add_slider_in_frame(
+                sec_conditions,
+                "Confirm Frames",
+                "trigger_confirm_frames",
+                1,
+                10,
+                int(getattr(config, "trigger_confirm_frames", 2)),
+                self._on_trigger_confirm_frames_changed,
+                is_float=False,
+            )
+
+            sec_burst = self._create_collapsible_section(self.content_frame, "Burst Settings", initially_open=False)
+            self._add_range_slider_in_frame(
+                sec_burst,
+                "Cooldown Range (s)",
+                "tbcooldown",
+                0.0,
+                5.0,
+                float(getattr(config, "tbcooldown_min", 0.0)),
+                float(getattr(config, "tbcooldown_max", 0.0)),
+                self._on_tbcooldown_range_changed,
+                is_float=True,
+            )
+            self._add_range_slider_in_frame(
+                sec_burst,
+                "Burst Count Range",
+                "tbburst_count",
+                1,
+                10,
+                int(getattr(config, "tbburst_count_min", 1)),
+                int(getattr(config, "tbburst_count_max", 1)),
+                self._on_tbburst_count_range_changed,
+                is_float=False,
+            )
+            self._add_range_slider_in_frame(
+                sec_burst,
+                "Burst Interval Range (ms)",
+                "tbburst_interval",
+                0,
+                500,
+                float(getattr(config, "tbburst_interval_min", 0.0)),
+                float(getattr(config, "tbburst_interval_max", 0.0)),
+                self._on_tbburst_interval_range_changed,
+                is_float=True,
+            )
+
+        sec_activation = self._create_collapsible_section(self.content_frame, "Activation", initially_open=False)
+        self.tb_button_option = self._add_option_row_in_frame(
+            sec_activation,
+            "Keybind",
+            list(BUTTONS.values()),
+            self._on_tb_button_selected,
         )
-        self._add_slider(
-            "Confirm Frames",
-            "trigger_confirm_frames",
-            1,
-            10,
-            int(getattr(config, "trigger_confirm_frames", 2)),
-            self._on_trigger_confirm_frames_changed,
-            is_float=False,
-        )
-        
-        self._add_spacer()
-        self._add_subtitle("BURST SETTINGS")
-        
-        # Cooldown Range (闆欐粦濉?
-        self._add_range_slider(
-            "Cooldown Range (s)", 
-            "tbcooldown", 
-            0.0, 5.0,
-            float(getattr(config, "tbcooldown_min", 0.0)),
-            float(getattr(config, "tbcooldown_max", 0.0)),
-            self._on_tbcooldown_range_changed,
-            is_float=True
-        )
-        
-        # Burst Count Range (闆欐粦濉?
-        self._add_range_slider(
-            "Burst Count Range", 
-            "tbburst_count", 
-            1, 10,
-            int(getattr(config, "tbburst_count_min", 1)),
-            int(getattr(config, "tbburst_count_max", 1)),
-            self._on_tbburst_count_range_changed,
-            is_float=False
-        )
-        
-        # Burst Interval Range (闆欐粦濉?
-        self._add_range_slider(
-            "Burst Interval Range (ms)", 
-            "tbburst_interval", 
-            0, 500,
-            float(getattr(config, "tbburst_interval_min", 0.0)),
-            float(getattr(config, "tbburst_interval_max", 0.0)),
-            self._on_tbburst_interval_range_changed,
-            is_float=True
-        )
-        
-        self._add_spacer()
-        self._add_subtitle("ACTIVATION")
-        self.tb_button_option = self._add_option_row("Keybind", list(BUTTONS.values()), self._on_tb_button_selected)
         self._option_widgets["selected_tb_btn"] = self.tb_button_option
-        # 瑷疆鐣跺墠鍊?
         current_tb_btn = getattr(config, "selected_tb_btn", 3)
         self.tb_button_option.set(BUTTONS.get(current_tb_btn, BUTTONS[3]))
 
         trigger_activation_types = ["Hold to Enable", "Hold to Disable", "Toggle"]
-        self.trigger_activation_type_option = self._add_option_row(
+        self.trigger_activation_type_option = self._add_option_row_in_frame(
+            sec_activation,
             "Trigger Mode",
             trigger_activation_types,
             self._on_trigger_activation_type_selected,
@@ -3009,20 +3101,55 @@ class ViewerApp(ctk.CTk):
         # 瑷诲唺 slider锛堜繚瀛?entry 寮曠敤鑰屼笉鏄?label锛?
         self._register_slider(key, slider, val_entry, min_val, max_val, is_float)
     
+    def _add_range_slider_in_frame(self, parent, text, key, min_val, max_val, init_min, init_max, command, is_float=False):
+        self._add_range_slider_to_parent(
+            parent,
+            text,
+            key,
+            min_val,
+            max_val,
+            init_min,
+            init_max,
+            command,
+            is_float=is_float,
+        )
+
     def _add_range_slider(self, text, key, min_val, max_val, init_min, init_max, command, is_float=False):
-        """娣诲姞绡勫湇婊戝锛堥洐婊戝锛?"""
-        frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self._add_range_slider_to_parent(
+            self.content_frame,
+            text,
+            key,
+            min_val,
+            max_val,
+            init_min,
+            init_max,
+            command,
+            is_float=is_float,
+        )
+
+    def _add_range_slider_to_parent(
+        self,
+        parent,
+        text,
+        key,
+        min_val,
+        max_val,
+        init_min,
+        init_max,
+        command,
+        is_float=False,
+    ):
+        """Add a dual-range slider in the given parent frame."""
+        frame = ctk.CTkFrame(parent, fg_color="transparent")
         frame.pack(fill="x", pady=2)
-        
-        # 妯欑堡鑸囧叐鍊嬭几鍏ユ
+
         header = ctk.CTkFrame(frame, fg_color="transparent")
         header.pack(fill="x")
         ctk.CTkLabel(header, text=text, font=FONT_MAIN, text_color=COLOR_TEXT).pack(side="left")
-        
-        # Max 杓稿叆妗嗭紙鍙抽倞锛?
+
         max_str = f"{init_max:.2f}" if is_float else f"{int(init_max)}"
         max_entry = ctk.CTkEntry(
-            header, 
+            header,
             width=70,
             height=25,
             fg_color=COLOR_SURFACE,
@@ -3030,18 +3157,16 @@ class ViewerApp(ctk.CTk):
             border_color=COLOR_BORDER,
             text_color=COLOR_TEXT,
             font=("Roboto", 10),
-            justify="center"
+            justify="center",
         )
         max_entry.insert(0, max_str)
         max_entry.pack(side="right", padx=2)
-        
-        # 閫ｆ帴绗﹁櫉
+
         ctk.CTkLabel(header, text="~", font=("Roboto", 10), text_color=COLOR_TEXT_DIM).pack(side="right")
-        
-        # Min 杓稿叆妗嗭紙宸﹂倞锛?
+
         min_str = f"{init_min:.2f}" if is_float else f"{int(init_min)}"
         min_entry = ctk.CTkEntry(
-            header, 
+            header,
             width=70,
             height=25,
             fg_color=COLOR_SURFACE,
@@ -3049,55 +3174,74 @@ class ViewerApp(ctk.CTk):
             border_color=COLOR_BORDER,
             text_color=COLOR_TEXT,
             font=("Roboto", 10),
-            justify="center"
+            justify="center",
         )
         min_entry.insert(0, min_str)
         min_entry.pack(side="right", padx=2)
-        
-        # 婊戝瀹瑰櫒
+
         slider_frame = ctk.CTkFrame(frame, fg_color="transparent")
         slider_frame.pack(fill="x", pady=(2, 5))
-        
-        # Min 婊戝锛堜笂闈級
+
         min_slider = ctk.CTkSlider(
-            slider_frame, 
-            from_=min_val, 
-            to=max_val, 
+            slider_frame,
+            from_=min_val,
+            to=max_val,
             number_of_steps=100 if is_float else int(max_val - min_val),
             fg_color=COLOR_BORDER,
             progress_color=COLOR_TEXT,
             button_color=COLOR_TEXT,
             button_hover_color=COLOR_ACCENT,
             height=10,
-            command=lambda v: self._on_range_slider_changed(v, "min", min_entry, max_entry, min_slider, max_slider, key, command, is_float, min_val, max_val)
+            command=lambda v: self._on_range_slider_changed(
+                v, "min", min_entry, max_entry, min_slider, max_slider, key, command, is_float, min_val, max_val
+            ),
         )
         min_slider.set(init_min)
         min_slider.pack(fill="x", pady=1)
-        
-        # Max 婊戝锛堜笅闈級
+
         max_slider = ctk.CTkSlider(
-            slider_frame, 
-            from_=min_val, 
-            to=max_val, 
+            slider_frame,
+            from_=min_val,
+            to=max_val,
             number_of_steps=100 if is_float else int(max_val - min_val),
             fg_color=COLOR_BORDER,
             progress_color=COLOR_ACCENT,
             button_color=COLOR_ACCENT,
             button_hover_color=COLOR_ACCENT_HOVER,
             height=10,
-            command=lambda v: self._on_range_slider_changed(v, "max", min_entry, max_entry, min_slider, max_slider, key, command, is_float, min_val, max_val)
+            command=lambda v: self._on_range_slider_changed(
+                v, "max", min_entry, max_entry, min_slider, max_slider, key, command, is_float, min_val, max_val
+            ),
         )
         max_slider.set(init_max)
         max_slider.pack(fill="x", pady=1)
-        
-        # 缍佸畾杓稿叆妗嗕簨浠?
-        min_entry.bind("<Return>", lambda e: self._on_range_entry_changed(min_entry, max_entry, min_slider, max_slider, key, command, is_float, min_val, max_val))
-        min_entry.bind("<FocusOut>", lambda e: self._on_range_entry_changed(min_entry, max_entry, min_slider, max_slider, key, command, is_float, min_val, max_val))
-        max_entry.bind("<Return>", lambda e: self._on_range_entry_changed(min_entry, max_entry, min_slider, max_slider, key, command, is_float, min_val, max_val))
-        max_entry.bind("<FocusOut>", lambda e: self._on_range_entry_changed(min_entry, max_entry, min_slider, max_slider, key, command, is_float, min_val, max_val))
-        
-        # 瑷诲唺绡勫湇婊戝
-        if not hasattr(self, '_range_slider_widgets'):
+
+        min_entry.bind(
+            "<Return>",
+            lambda e: self._on_range_entry_changed(
+                min_entry, max_entry, min_slider, max_slider, key, command, is_float, min_val, max_val
+            ),
+        )
+        min_entry.bind(
+            "<FocusOut>",
+            lambda e: self._on_range_entry_changed(
+                min_entry, max_entry, min_slider, max_slider, key, command, is_float, min_val, max_val
+            ),
+        )
+        max_entry.bind(
+            "<Return>",
+            lambda e: self._on_range_entry_changed(
+                min_entry, max_entry, min_slider, max_slider, key, command, is_float, min_val, max_val
+            ),
+        )
+        max_entry.bind(
+            "<FocusOut>",
+            lambda e: self._on_range_entry_changed(
+                min_entry, max_entry, min_slider, max_slider, key, command, is_float, min_val, max_val
+            ),
+        )
+
+        if not hasattr(self, "_range_slider_widgets"):
             self._range_slider_widgets = {}
         self._range_slider_widgets[key] = {
             "min_slider": min_slider,
@@ -3106,7 +3250,7 @@ class ViewerApp(ctk.CTk):
             "max_entry": max_entry,
             "min_val": min_val,
             "max_val": max_val,
-            "is_float": is_float
+            "is_float": is_float,
         }
     
     def _on_range_slider_changed(self, value, slider_type, min_entry, max_entry, min_slider, max_slider, key, command, is_float, range_min, range_max):
@@ -3355,12 +3499,20 @@ class ViewerApp(ctk.CTk):
             self.tracker.mouse_dpi = config.mouse_dpi
             self.tracker.fovsize = config.fovsize
             self.tracker.tbfovsize = config.tbfovsize
+            self.tracker.trigger_type = getattr(config, "trigger_type", "current")
             self.tracker.tbdelay_min = config.tbdelay_min
             self.tracker.tbdelay_max = config.tbdelay_max
             self.tracker.tbhold_min = config.tbhold_min
             self.tracker.tbhold_max = config.tbhold_max
             self.tracker.tbcooldown_min = config.tbcooldown_min
             self.tracker.tbcooldown_max = config.tbcooldown_max
+            self.tracker.rgb_tbdelay_min = getattr(config, "rgb_tbdelay_min", 0.08)
+            self.tracker.rgb_tbdelay_max = getattr(config, "rgb_tbdelay_max", 0.15)
+            self.tracker.rgb_tbhold_min = getattr(config, "rgb_tbhold_min", 40)
+            self.tracker.rgb_tbhold_max = getattr(config, "rgb_tbhold_max", 60)
+            self.tracker.rgb_tbcooldown_min = getattr(config, "rgb_tbcooldown_min", 0.0)
+            self.tracker.rgb_tbcooldown_max = getattr(config, "rgb_tbcooldown_max", 0.0)
+            self.tracker.rgb_color_profile = getattr(config, "rgb_color_profile", "purple")
             self.tracker.tbburst_count_min = config.tbburst_count_min
             self.tracker.tbburst_count_max = config.tbburst_count_max
             self.tracker.tbburst_interval_min = config.tbburst_interval_min
@@ -3421,6 +3573,19 @@ class ViewerApp(ctk.CTk):
                 if k in self._option_widgets: 
                     if k in ["selected_mouse_button", "selected_tb_btn", "selected_mouse_button_sec"]:
                         self._set_btn_option_value(k, BUTTONS.get(v, str(v)))
+                    elif k == "trigger_type":
+                        trigger_type_display = {
+                            "current": "Current",
+                            "rgb": "RGB Trigger",
+                        }
+                        self._set_option_value(k, trigger_type_display.get(str(v).lower(), "Current"))
+                    elif k == "rgb_color_profile":
+                        rgb_profile_display = {
+                            "red": "Red",
+                            "yellow": "Yellow",
+                            "purple": "Purple",
+                        }
+                        self._set_option_value(k, rgb_profile_display.get(str(v).lower(), "Purple"))
                     elif k == "trigger_activation_type":
                         trigger_activation_display = {
                             "hold_enable": "Hold to Enable",
@@ -3464,6 +3629,9 @@ class ViewerApp(ctk.CTk):
                     if hasattr(self, "udp_fov_slider"):
                         self.udp_fov_slider.set(v)
                     self._update_udp_fov_info()
+
+            if str(getattr(self, "_active_tab_name", "")) == "Trigger" and "trigger_type" in data:
+                self._show_tb_tab()
 
             from src.utils.detection import reload_model
             self.tracker.model, self.tracker.class_names = reload_model()
@@ -4263,6 +4431,27 @@ class ViewerApp(ctk.CTk):
         if hasattr(self, 'tracker'):
             self.tracker.tbhold_min = min_val
             self.tracker.tbhold_max = max_val
+
+    def _on_rgb_tbdelay_range_changed(self, min_val, max_val):
+        config.rgb_tbdelay_min = min_val
+        config.rgb_tbdelay_max = max_val
+        if hasattr(self, "tracker"):
+            self.tracker.rgb_tbdelay_min = min_val
+            self.tracker.rgb_tbdelay_max = max_val
+
+    def _on_rgb_tbhold_range_changed(self, min_val, max_val):
+        config.rgb_tbhold_min = min_val
+        config.rgb_tbhold_max = max_val
+        if hasattr(self, "tracker"):
+            self.tracker.rgb_tbhold_min = min_val
+            self.tracker.rgb_tbhold_max = max_val
+
+    def _on_rgb_tbcooldown_range_changed(self, min_val, max_val):
+        config.rgb_tbcooldown_min = min_val
+        config.rgb_tbcooldown_max = max_val
+        if hasattr(self, "tracker"):
+            self.tracker.rgb_tbcooldown_min = min_val
+            self.tracker.rgb_tbcooldown_max = max_val
     
 
     def _on_trigger_roi_size_changed(self, val):
@@ -4629,6 +4818,30 @@ class ViewerApp(ctk.CTk):
         }
         config.aimbot_activation_type = activation_type_map.get(val, "hold_enable")
         self._log_config(f"Aim Activation Type: {val}")
+
+    def _on_trigger_type_selected(self, val):
+        trigger_type_map = {
+            "Current": "current",
+            "RGB Trigger": "rgb",
+        }
+        new_trigger_type = trigger_type_map.get(val, "current")
+        old_trigger_type = str(getattr(config, "trigger_type", "current")).strip().lower()
+        config.trigger_type = new_trigger_type
+        self._log_config(f"Trigger Type: {val}")
+        # Rebuild tab to show mode-specific controls immediately.
+        if new_trigger_type != old_trigger_type:
+            self._show_tb_tab()
+
+    def _on_rgb_color_profile_selected(self, val):
+        rgb_profile_map = {
+            "Red": "red",
+            "Yellow": "yellow",
+            "Purple": "purple",
+        }
+        config.rgb_color_profile = rgb_profile_map.get(val, "purple")
+        if hasattr(self, "tracker"):
+            self.tracker.rgb_color_profile = config.rgb_color_profile
+        self._log_config(f"RGB Preset: {val}")
 
     def _on_tb_button_selected(self, val):
         for k, name in BUTTONS.items():

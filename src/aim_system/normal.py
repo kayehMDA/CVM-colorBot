@@ -631,7 +631,15 @@ def _unpack_target(target):
     return cx, cy, distance, head_y_min, body_y_max
 
 
-def process_normal_mode(targets_main, frame, img, tracker, targets_sec=None, targets_trigger=None):
+def process_normal_mode(
+    targets_main,
+    frame,
+    img,
+    tracker,
+    targets_sec=None,
+    targets_trigger=None,
+    trigger_img=None,
+):
     """
     主瞄準調度器（Main Aimbot + Sec Aimbot + Triggerbot）
     Main Aimbot 和 Sec Aimbot 各自使用獨立的 Operation Mode
@@ -765,6 +773,7 @@ def process_normal_mode(targets_main, frame, img, tracker, targets_sec=None, tar
             tracker.tbburst_count_min, tracker.tbburst_count_max,
             tracker.tbburst_interval_min, tracker.tbburst_interval_max,
             targets=targets_trigger,
+            source_img=trigger_img,
         )
     except Exception as e:
         log_print("[Triggerbot error]", e)

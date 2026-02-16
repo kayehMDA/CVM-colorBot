@@ -481,6 +481,8 @@ class AimTracker:
             print(f"[Track] Invalid frame dimensions: {w}x{h}")
             return
         frame = FrameInfo(w, h)
+        # Keep an untouched frame for trigger detection to avoid UI overlays affecting trigger matches.
+        trigger_source_img = bgr_img.copy()
 
         try:
             detection_results, mask = perform_detection(self.model, bgr_img)
@@ -600,6 +602,7 @@ class AimTracker:
                 bgr_img,
                 targets_sec=targets_sec,
                 targets_trigger=targets_all,
+                trigger_img=trigger_source_img,
             )
         except Exception as e:
             print("[Aim error]", e)
@@ -904,7 +907,15 @@ class AimTracker:
         cv2.putText(img, label_text, (int(x1) + 5, int(y1) - 5), 
                    font, font_scale, (255, 255, 255), font_thickness, cv2.LINE_AA)
 
-    def _aim_and_move(self, targets_main, frame, img, targets_sec=None, targets_trigger=None):
+    def _aim_and_move(
+        self,
+        targets_main,
+        frame,
+        img,
+        targets_sec=None,
+        targets_trigger=None,
+        trigger_img=None,
+    ):
         """
         铏曠悊鐬勬簴鍜岀Щ鍕曢倧杓?        
         绲变竴瑾垮害鍣細Main Aimbot 鍜?Sec Aimbot 鍚勮嚜浣跨敤鐛ㄧ珛鐨?Operation Mode銆?        鏀寔 Normal銆丼ilent銆丯CAF銆乄indMouse 鍥涚ó妯″紡銆?        
@@ -914,6 +925,7 @@ class AimTracker:
             img: BGR 鍦栧儚闄ｅ垪
             targets_sec: Secondary Aimbot target list
             targets_trigger: Triggerbot target list
+            trigger_img: Source frame for Triggerbot detection (without overlay drawings)
         """
         try:
             process_normal_mode(
@@ -923,6 +935,7 @@ class AimTracker:
                 self,
                 targets_sec=targets_sec,
                 targets_trigger=targets_trigger,
+                trigger_img=trigger_img,
             )
         except Exception as e:
             print("[Aim dispatch error]", e)
