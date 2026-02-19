@@ -17,7 +17,7 @@ except Exception:
 
 from src.utils.config import config
 from src.utils.mouse import Mouse, is_button_pressed
-from src.utils.activation import get_active_aim_fov
+from src.utils.activation import get_active_aim_fov, get_active_trigger_fov
 from src.utils.detection import load_model, perform_detection
 from src.capture.capture_service import CaptureService
 from src.aim_system.normal import process_normal_mode
@@ -58,6 +58,10 @@ class AimTracker:
         self.ads_fovsize = float(getattr(config, "ads_fovsize", self.fovsize))
         self.ads_key = getattr(config, "ads_key", "Right Mouse Button")
         self.tbfovsize = float(getattr(config, "tbfovsize", 70))
+        self.trigger_ads_fov_enabled = bool(getattr(config, "trigger_ads_fov_enabled", False))
+        self.trigger_ads_fovsize = float(getattr(config, "trigger_ads_fovsize", self.tbfovsize))
+        self.trigger_ads_key = getattr(config, "trigger_ads_key", "Right Mouse Button")
+        self.trigger_ads_key_type = getattr(config, "trigger_ads_key_type", "hold")
         # Triggerbot delay range
         self.tbdelay_min = float(getattr(config, "tbdelay_min", 0.08))
         self.tbdelay_max = float(getattr(config, "tbdelay_max", 0.15))
@@ -360,7 +364,8 @@ class AimTracker:
                 self._draw_dashed_circle(img, center_x, center_y, snap_r, (180, 180, 180), 1)
                 cv2.circle(img, (center_x, center_y), near_r, (255, 200, 100), 1)
         if getattr(config, "enabletb", False):
-            cv2.circle(img, (center_x, center_y), int(getattr(config, "tbfovsize", self.tbfovsize)), (255, 255, 255), 2)
+            tb_fov = int(get_active_trigger_fov(fallback=self.tbfovsize))
+            cv2.circle(img, (center_x, center_y), tb_fov, (255, 255, 255), 2)
 
     def _update_raw_stream_windows(self, raw_img):
         """Show or close raw-stream windows for NDI/UDP based on settings."""
@@ -690,7 +695,7 @@ class AimTracker:
         
         # Triggerbot FOV
         if getattr(config, "enabletb", False):
-            tb_fov = int(getattr(config, "tbfovsize", self.tbfovsize))
+            tb_fov = int(get_active_trigger_fov(fallback=self.tbfovsize))
             cv2.circle(img, (center_x, center_y), tb_fov, (0, 165, 255), 2)
         
         # 3. 绻＝鐩淇℃伅

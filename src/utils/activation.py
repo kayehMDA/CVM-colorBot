@@ -36,6 +36,11 @@ _ads_states = {
         "last_button_state": False,
         "lock": threading.Lock(),
     },
+    "trigger": {
+        "toggle_state": False,
+        "last_button_state": False,
+        "lock": threading.Lock(),
+    },
 }
 
 _BUTTON_NAME_TO_IDX = {
@@ -86,8 +91,10 @@ def _to_positive_float(value, fallback):
     return parsed
 
 
-def _is_ads_trigger_active(current_pressed: bool, ads_key_type: str, is_sec: bool = False) -> bool:
-    key = "sec" if is_sec else "main"
+def _is_ads_trigger_active(current_pressed: bool, ads_key_type: str, state_key: str = "main") -> bool:
+    key = str(state_key).strip().lower()
+    if key not in _ads_states:
+        key = "main"
     state = _ads_states[key]
     mode = str(ads_key_type or "hold").strip().lower()
 
@@ -127,7 +134,24 @@ def get_active_aim_fov(is_sec: bool = False, fallback: float = 0.0) -> float:
 
     if not ads_enabled:
         return base_fov
-    if not _is_ads_trigger_active(is_binding_pressed(ads_key), ads_key_type, is_sec=is_sec):
+    state_key = "sec" if is_sec else "main"
+    if not _is_ads_trigger_active(is_binding_pressed(ads_key), ads_key_type, state_key=state_key):
+        return base_fov
+    return ads_fov
+
+
+def get_active_trigger_fov(fallback: float = 0.0) -> float:
+    """Resolve runtime Trigger FOV with ADS override when Trigger ADS key is active."""
+    base_fallback = max(float(fallback), 1.0)
+    base_fov = _to_positive_float(getattr(config, "tbfovsize", base_fallback), base_fallback)
+    ads_enabled = bool(getattr(config, "trigger_ads_fov_enabled", False))
+    ads_key = getattr(config, "trigger_ads_key", "")
+    ads_key_type = getattr(config, "trigger_ads_key_type", "hold")
+    ads_fov = _to_positive_float(getattr(config, "trigger_ads_fovsize", base_fov), base_fov)
+
+    if not ads_enabled:
+        return base_fov
+    if not _is_ads_trigger_active(is_binding_pressed(ads_key), ads_key_type, state_key="trigger"):
         return base_fov
     return ads_fov
 

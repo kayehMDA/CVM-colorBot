@@ -91,6 +91,10 @@ class Config:
         self.ads_key = "Right Mouse Button"
         self.ads_key_type = "hold"  # hold, toggle
         self.tbfovsize = 5 
+        self.trigger_ads_fov_enabled = False
+        self.trigger_ads_fovsize = 5
+        self.trigger_ads_key = "Right Mouse Button"
+        self.trigger_ads_key_type = "hold"  # hold, toggle
         self.trigger_type = "current"  # current, rgb
         # Triggerbot delay range (seconds)
         self.tbdelay_min = 0.08
@@ -375,6 +379,10 @@ class Config:
             "ads_key": self.ads_key,
             "ads_key_type": self.ads_key_type,
             "tbfovsize": self.tbfovsize,
+            "trigger_ads_fov_enabled": self.trigger_ads_fov_enabled,
+            "trigger_ads_fovsize": self.trigger_ads_fovsize,
+            "trigger_ads_key": self.trigger_ads_key,
+            "trigger_ads_key_type": self.trigger_ads_key_type,
             "trigger_type": self.trigger_type,
             "tbdelay_min": self.tbdelay_min,
             "tbdelay_max": self.tbdelay_max,
@@ -587,6 +595,19 @@ class Config:
         self.ads_key_type = "toggle" if ads_key_type == "toggle" else "hold"
         ads_key_type_sec = str(getattr(self, "ads_key_type_sec", "hold")).strip().lower()
         self.ads_key_type_sec = "toggle" if ads_key_type_sec == "toggle" else "hold"
+        self.trigger_ads_fov_enabled = bool(getattr(self, "trigger_ads_fov_enabled", False))
+        try:
+            self.trigger_ads_fovsize = float(
+                getattr(self, "trigger_ads_fovsize", getattr(self, "tbfovsize", 5))
+            )
+        except Exception:
+            self.trigger_ads_fovsize = float(getattr(self, "tbfovsize", 5))
+        self.trigger_ads_key = (
+            str(getattr(self, "trigger_ads_key", "Right Mouse Button")).strip()
+            or "Right Mouse Button"
+        )
+        trigger_ads_key_type = str(getattr(self, "trigger_ads_key_type", "hold")).strip().lower()
+        self.trigger_ads_key_type = "toggle" if trigger_ads_key_type == "toggle" else "hold"
         # Backward compatibility: old config used `net_mac`.
         net_uuid = str(getattr(self, "net_uuid", "")).strip()
         net_mac = str(getattr(self, "net_mac", "")).strip()

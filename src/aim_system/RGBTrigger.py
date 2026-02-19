@@ -14,7 +14,7 @@ import numpy as np
 
 from src.utils.config import config
 from src.utils.debug_logger import log_print
-from src.utils.mouse import is_button_pressed
+from src.utils.activation import get_active_trigger_fov, is_binding_pressed
 from .trigger_strafe_helper import apply_manual_wait_gate, reset_strafe_runtime_state, run_with_auto_strafe
 
 
@@ -25,19 +25,17 @@ RGB_PRESETS = {
 }
 
 
-def _is_valid_button_index(value):
-    try:
-        button_index = int(value)
-    except (TypeError, ValueError):
+def _is_configured_binding(value):
+    if value is None:
         return False
-    return 0 <= button_index <= 4
+    return bool(str(value).strip())
 
 
-def _safe_button_pressed(value):
-    if not _is_valid_button_index(value):
+def _safe_binding_pressed(value):
+    if not _is_configured_binding(value):
         return False
     try:
-        return bool(is_button_pressed(int(value)))
+        return bool(is_binding_pressed(value))
     except Exception:
         return False
 
@@ -47,13 +45,13 @@ def _resolve_activation_mode(state_dict, selected_tb_btn, selected_2_tb):
     if mode not in {"hold_enable", "hold_disable", "toggle"}:
         mode = "hold_enable"
 
-    primary_valid = _is_valid_button_index(selected_tb_btn)
-    secondary_valid = _is_valid_button_index(selected_2_tb)
+    primary_valid = _is_configured_binding(selected_tb_btn)
+    secondary_valid = _is_configured_binding(selected_2_tb)
     if not primary_valid and not secondary_valid:
         return False, False, "BUTTON_NOT_CONFIGURED"
 
-    pressed_primary = _safe_button_pressed(selected_tb_btn) if primary_valid else False
-    pressed_secondary = _safe_button_pressed(selected_2_tb) if secondary_valid else False
+    pressed_primary = _safe_binding_pressed(selected_tb_btn) if primary_valid else False
+    pressed_secondary = _safe_binding_pressed(selected_2_tb) if secondary_valid else False
     is_pressed = bool(pressed_primary or pressed_secondary)
 
     if mode == "hold_enable":
@@ -216,7 +214,7 @@ def process_rgb_triggerbot(frame, img, controller, state_dict, close_debug_windo
 
     try:
         cx0, cy0 = int(frame.xres // 2), int(frame.yres // 2)
-        tb_fov = float(getattr(config, "tbfovsize", 0))
+        tb_fov = float(get_active_trigger_fov(fallback=getattr(config, "tbfovsize", 0)))
         roi_size = max(1, int(tb_fov)) if tb_fov > 0 else 8
         x1, y1 = max(cx0 - roi_size, 0), max(cy0 - roi_size, 0)
         x2, y2 = min(cx0 + roi_size, img.shape[1]), min(cy0 + roi_size, img.shape[0])

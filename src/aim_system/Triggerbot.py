@@ -12,7 +12,7 @@ except Exception:
 
 from src.utils.config import config
 from src.utils.debug_logger import log_print
-from src.utils.mouse import is_button_pressed
+from src.utils.activation import get_active_trigger_fov, is_binding_pressed
 from .trigger_strafe_helper import apply_manual_wait_gate, reset_strafe_runtime_state, run_with_auto_strafe
 
 
@@ -47,19 +47,17 @@ def _close_trigger_debug_windows():
     _safe_destroy_window("Mask")
 
 
-def _is_valid_button_index(value):
-    try:
-        button_index = int(value)
-    except (TypeError, ValueError):
+def _is_configured_binding(value):
+    if value is None:
         return False
-    return 0 <= button_index <= 4
+    return bool(str(value).strip())
 
 
-def _safe_button_pressed(value):
-    if not _is_valid_button_index(value):
+def _safe_binding_pressed(value):
+    if not _is_configured_binding(value):
         return False
     try:
-        return bool(is_button_pressed(int(value)))
+        return bool(is_binding_pressed(value))
     except Exception:
         return False
 
@@ -134,8 +132,8 @@ def _resolve_activation_mode(primary_valid, secondary_valid, selected_tb_btn, se
     if not primary_valid and not secondary_valid:
         return False, False, "BUTTON_NOT_CONFIGURED"
 
-    pressed_primary = _safe_button_pressed(selected_tb_btn) if primary_valid else False
-    pressed_secondary = _safe_button_pressed(selected_2_tb) if secondary_valid else False
+    pressed_primary = _safe_binding_pressed(selected_tb_btn) if primary_valid else False
+    pressed_secondary = _safe_binding_pressed(selected_2_tb) if secondary_valid else False
     is_pressed = bool(pressed_primary or pressed_secondary)
 
     if mode == "hold_enable":
@@ -272,8 +270,8 @@ def process_triggerbot(
 
     selected_tb_btn = getattr(config, "selected_tb_btn", None)
     selected_2_tb = getattr(config, "selected_2_tb", None)
-    primary_valid = _is_valid_button_index(selected_tb_btn)
-    secondary_valid = _is_valid_button_index(selected_2_tb)
+    primary_valid = _is_configured_binding(selected_tb_btn)
+    secondary_valid = _is_configured_binding(selected_2_tb)
 
     activation_active, activation_pressed, activation_error = _resolve_activation_mode(
         primary_valid, secondary_valid, selected_tb_btn, selected_2_tb
@@ -328,7 +326,7 @@ def process_triggerbot(
     try:
         detect_img = source_img if source_img is not None else img
         cx0, cy0 = int(frame.xres // 2), int(frame.yres // 2)
-        tb_fov = float(getattr(config, "tbfovsize", 0))
+        tb_fov = float(get_active_trigger_fov(fallback=getattr(config, "tbfovsize", 0)))
         if not _has_target_in_trigger_fov(targets, tb_fov):
             with _triggerbot_state["burst_lock"]:
                 if _triggerbot_state["burst_state"] != "bursting":

@@ -2594,6 +2594,7 @@ class ViewerApp(ctk.CTk):
                 float(getattr(config, "tbfovsize", 70)),
                 self._on_tbfovsize_changed,
             )
+            self._add_trigger_ads_fov_controls_in_frame(sec_rgb)
 
             self.rgb_color_profile_option = self._add_option_row_in_frame(
                 sec_rgb,
@@ -2654,6 +2655,7 @@ class ViewerApp(ctk.CTk):
                 float(getattr(config, "tbfovsize", 70)),
                 self._on_tbfovsize_changed,
             )
+            self._add_trigger_ads_fov_controls_in_frame(sec_params)
             self._add_range_slider_in_frame(
                 sec_params,
                 "Delay Range (s)",
@@ -2749,15 +2751,13 @@ class ViewerApp(ctk.CTk):
             )
 
         sec_activation = self._create_collapsible_section(self.content_frame, "Activation", initially_open=False)
-        self.tb_button_option = self._add_option_row_in_frame(
+        current_tb_btn = self._ads_binding_to_display(getattr(config, "selected_tb_btn", 3))
+        self.tb_key_bind_button = self._add_bind_capture_row_in_frame(
             sec_activation,
             "Keybind",
-            list(BUTTONS.values()),
-            self._on_tb_button_selected,
+            current_tb_btn,
+            self._start_trigger_key_capture,
         )
-        self._option_widgets["selected_tb_btn"] = self.tb_button_option
-        current_tb_btn = getattr(config, "selected_tb_btn", 3)
-        self.tb_button_option.set(BUTTONS.get(current_tb_btn, BUTTONS[3]))
 
         trigger_activation_types = ["Hold to Enable", "Hold to Disable", "Toggle"]
         self.trigger_activation_type_option = self._add_option_row_in_frame(
@@ -2777,6 +2777,29 @@ class ViewerApp(ctk.CTk):
         }
         self.trigger_activation_type_option.set(
             trigger_activation_display.get(current_trigger_activation_type, "Hold to Enable")
+        )
+
+        current_trigger_ads_key = self._ads_binding_to_display(
+            getattr(config, "trigger_ads_key", "Right Mouse Button")
+        )
+        self.trigger_ads_key_bind_button = self._add_bind_capture_row_in_frame(
+            sec_activation,
+            "ADS Keybind",
+            current_trigger_ads_key,
+            self._start_trigger_ads_key_capture,
+        )
+        self.trigger_ads_key_type_option = self._add_option_row_in_frame(
+            sec_activation,
+            "ADS Key Type",
+            list(ADS_KEY_TYPE_DISPLAY_TO_VALUE.keys()),
+            self._on_trigger_ads_key_type_selected,
+        )
+        self._option_widgets["trigger_ads_key_type"] = self.trigger_ads_key_type_option
+        current_trigger_ads_key_type = str(
+            getattr(config, "trigger_ads_key_type", "hold")
+        ).strip().lower()
+        self.trigger_ads_key_type_option.set(
+            ADS_KEY_TYPE_VALUE_TO_DISPLAY.get(current_trigger_ads_key_type, "Hold")
         )
 
         if self._supports_trigger_strafe_ui():
@@ -3773,6 +3796,33 @@ class ViewerApp(ctk.CTk):
                 callback_slider,
             )
 
+    def _add_trigger_ads_fov_controls_in_frame(self, parent):
+        enabled_key = "trigger_ads_fov_enabled"
+        slider_key = "trigger_ads_fovsize"
+        fallback_fov = getattr(config, "tbfovsize", 70)
+
+        self.var_trigger_ads_fov_enabled = tk.BooleanVar(
+            value=bool(getattr(config, enabled_key, False))
+        )
+        self._add_switch_in_frame(
+            parent,
+            "Enable Trigger ADS FOV",
+            self.var_trigger_ads_fov_enabled,
+            self._on_trigger_ads_fov_enabled_changed,
+        )
+        self._checkbox_vars[enabled_key] = self.var_trigger_ads_fov_enabled
+
+        if self.var_trigger_ads_fov_enabled.get():
+            self._add_slider_in_frame(
+                parent,
+                "Trigger ADS FOV Size",
+                slider_key,
+                1,
+                300,
+                float(getattr(config, slider_key, fallback_fov)),
+                self._on_trigger_ads_fovsize_changed,
+            )
+
     def _ads_binding_to_display(self, binding_value):
         if binding_value is None:
             return "Right Mouse Button"
@@ -3928,6 +3978,44 @@ class ViewerApp(ctk.CTk):
         self._set_bind_button_text(button, "Press key...")
         self.after(30, lambda capture_id=ctx["id"]: self._poll_binding_capture(capture_id))
 
+    def _start_trigger_key_capture(self):
+        config_key = "selected_tb_btn"
+        tracker_key = "selected_tb_btn"
+        button = getattr(self, "tb_key_bind_button", None)
+        if button is None:
+            return
+
+        self._cancel_binding_capture()
+
+        candidates, keyboard_supported = self._get_binding_capture_candidates()
+        if not keyboard_supported:
+            self._log_config("Current Input API does not expose keyboard state; capture supports mouse buttons only.")
+        if not self._is_input_backend_connected():
+            self._log_config("Input API is not connected; key capture may timeout.")
+
+        prev_states = {binding: bool(self._is_binding_pressed_by_backend(binding)) for binding in candidates}
+        restore_binding = getattr(config, config_key, 3)
+        restore_text = self._ads_binding_to_display(restore_binding)
+
+        ctx = {
+            "id": int(getattr(self, "_binding_capture_id", 0)) + 1,
+            "config_key": config_key,
+            "tracker_key": tracker_key,
+            "binding_kind": "trigger",
+            "log_label": "Trigger Key",
+            "button": button,
+            "restore_text": restore_text,
+            "candidates": candidates,
+            "prev_states": prev_states,
+            "started_at": time.monotonic(),
+            "arm_at": time.monotonic() + 0.35,
+            "timeout_sec": 10.0,
+        }
+        self._binding_capture_id = ctx["id"]
+        self._binding_capture_ctx = ctx
+        self._set_bind_button_text(button, "Press key...")
+        self.after(30, lambda capture_id=ctx["id"]: self._poll_binding_capture(capture_id))
+
     def _start_ads_key_capture(self, is_sec=False):
         key_name = "ads_key_sec" if is_sec else "ads_key"
         tracker_attr = "ads_key_sec" if is_sec else "ads_key"
@@ -3953,6 +4041,44 @@ class ViewerApp(ctk.CTk):
             "tracker_key": tracker_attr,
             "binding_kind": "ads",
             "log_label": "Sec ADS Key" if is_sec else "ADS Key",
+            "button": button,
+            "restore_text": restore_text,
+            "candidates": candidates,
+            "prev_states": prev_states,
+            "started_at": time.monotonic(),
+            "arm_at": time.monotonic() + 0.35,
+            "timeout_sec": 10.0,
+        }
+        self._binding_capture_id = ctx["id"]
+        self._binding_capture_ctx = ctx
+        self._set_bind_button_text(button, "Press key...")
+        self.after(30, lambda capture_id=ctx["id"]: self._poll_binding_capture(capture_id))
+
+    def _start_trigger_ads_key_capture(self):
+        config_key = "trigger_ads_key"
+        tracker_key = "trigger_ads_key"
+        button = getattr(self, "trigger_ads_key_bind_button", None)
+        if button is None:
+            return
+
+        self._cancel_binding_capture()
+
+        candidates, keyboard_supported = self._get_binding_capture_candidates()
+        if not keyboard_supported:
+            self._log_config("Current Input API does not expose keyboard state; capture supports mouse buttons only.")
+        if not self._is_input_backend_connected():
+            self._log_config("Input API is not connected; key capture may timeout.")
+
+        prev_states = {binding: bool(self._is_binding_pressed_by_backend(binding)) for binding in candidates}
+        restore_binding = getattr(config, config_key, "Right Mouse Button")
+        restore_text = self._ads_binding_to_display(restore_binding)
+
+        ctx = {
+            "id": int(getattr(self, "_binding_capture_id", 0)) + 1,
+            "config_key": config_key,
+            "tracker_key": tracker_key,
+            "binding_kind": "trigger_ads",
+            "log_label": "Trigger ADS Key",
             "button": button,
             "restore_text": restore_text,
             "candidates": candidates,
@@ -3998,7 +4124,7 @@ class ViewerApp(ctk.CTk):
             config_key = str(ctx.get("config_key", "ads_key"))
             tracker_key = str(ctx.get("tracker_key", "ads_key"))
             binding_kind = str(ctx.get("binding_kind", "ads")).strip().lower()
-            if binding_kind == "aim":
+            if binding_kind in {"aim", "trigger"}:
                 stored_value = self._normalize_aim_binding_for_config(selected_binding)
             else:
                 stored_value = selected_binding
@@ -4050,6 +4176,11 @@ class ViewerApp(ctk.CTk):
             self.tracker.ads_fovsize = getattr(config, "ads_fovsize", config.fovsize)
             self.tracker.ads_key = getattr(config, "ads_key", "Right Mouse Button")
             self.tracker.tbfovsize = config.tbfovsize
+            self.tracker.trigger_ads_fov_enabled = getattr(config, "trigger_ads_fov_enabled", False)
+            self.tracker.trigger_ads_fovsize = getattr(config, "trigger_ads_fovsize", config.tbfovsize)
+            self.tracker.trigger_ads_key = getattr(config, "trigger_ads_key", "Right Mouse Button")
+            self.tracker.trigger_ads_key_type = getattr(config, "trigger_ads_key_type", "hold")
+            self.tracker.selected_tb_btn = config.selected_tb_btn
             self.tracker.trigger_type = getattr(config, "trigger_type", "current")
             self.tracker.tbdelay_min = config.tbdelay_min
             self.tracker.tbdelay_max = config.tbdelay_max
@@ -4125,11 +4256,16 @@ class ViewerApp(ctk.CTk):
                 if k in self._checkbox_vars: 
                     self._set_checkbox_value(k, v)
                 if k in self._option_widgets: 
-                    if k in ["selected_mouse_button", "selected_tb_btn", "selected_mouse_button_sec"]:
+                    if k in ["selected_mouse_button", "selected_mouse_button_sec"]:
                         self._set_btn_option_value(k, BUTTONS.get(v, str(v)))
                     elif k in ("ads_key", "ads_key_sec"):
                         self._set_option_value(k, self._ads_binding_to_display(v))
                     elif k in ("ads_key_type", "ads_key_type_sec"):
+                        self._set_option_value(
+                            k,
+                            ADS_KEY_TYPE_VALUE_TO_DISPLAY.get(str(v).strip().lower(), "Hold"),
+                        )
+                    elif k == "trigger_ads_key_type":
                         self._set_option_value(
                             k,
                             ADS_KEY_TYPE_VALUE_TO_DISPLAY.get(str(v).strip().lower(), "Hold"),
@@ -4168,10 +4304,14 @@ class ViewerApp(ctk.CTk):
                     self._set_bind_button_text(self.aim_key_bind_button, self._ads_binding_to_display(v))
                 elif k == "selected_mouse_button_sec" and hasattr(self, "aim_key_bind_button_sec"):
                     self._set_bind_button_text(self.aim_key_bind_button_sec, self._ads_binding_to_display(v))
+                elif k == "selected_tb_btn" and hasattr(self, "tb_key_bind_button"):
+                    self._set_bind_button_text(self.tb_key_bind_button, self._ads_binding_to_display(v))
                 elif k == "ads_key" and hasattr(self, "ads_key_bind_button"):
                     self._set_bind_button_text(self.ads_key_bind_button, self._ads_binding_to_display(v))
                 elif k == "ads_key_sec" and hasattr(self, "ads_key_bind_button_sec"):
                     self._set_bind_button_text(self.ads_key_bind_button_sec, self._ads_binding_to_display(v))
+                elif k == "trigger_ads_key" and hasattr(self, "trigger_ads_key_bind_button"):
+                    self._set_bind_button_text(self.trigger_ads_key_bind_button, self._ads_binding_to_display(v))
 
                 if k == "serial_auto_switch_4m":
                     self.saved_serial_auto_switch_4m = bool(v)
@@ -4217,6 +4357,10 @@ class ViewerApp(ctk.CTk):
                     "trigger_type" in data
                     or "trigger_strafe_mode" in data
                     or "mouse_api" in data
+                    or "selected_tb_btn" in data
+                    or "trigger_ads_fov_enabled" in data
+                    or "trigger_ads_key" in data
+                    or "trigger_ads_key_type" in data
                 ):
                     if not self._supports_trigger_strafe_ui(getattr(config, "mouse_api", "Serial")):
                         config.trigger_strafe_mode = "off"
@@ -4957,6 +5101,19 @@ class ViewerApp(ctk.CTk):
             config.ads_fovsize = getattr(self.tracker, "ads_fovsize", getattr(config, "ads_fovsize", config.fovsize))
             config.ads_key = getattr(self.tracker, "ads_key", getattr(config, "ads_key", "Right Mouse Button"))
             config.tbfovsize = self.tracker.tbfovsize
+            config.trigger_ads_fov_enabled = getattr(
+                self.tracker, "trigger_ads_fov_enabled", getattr(config, "trigger_ads_fov_enabled", False)
+            )
+            config.trigger_ads_fovsize = getattr(
+                self.tracker, "trigger_ads_fovsize", getattr(config, "trigger_ads_fovsize", config.tbfovsize)
+            )
+            config.trigger_ads_key = getattr(
+                self.tracker, "trigger_ads_key", getattr(config, "trigger_ads_key", "Right Mouse Button")
+            )
+            config.trigger_ads_key_type = getattr(
+                self.tracker, "trigger_ads_key_type", getattr(config, "trigger_ads_key_type", "hold")
+            )
+            config.selected_tb_btn = getattr(self.tracker, "selected_tb_btn", getattr(config, "selected_tb_btn", 3))
             config.tbdelay_min = self.tracker.tbdelay_min
             config.tbdelay_max = self.tracker.tbdelay_max
             config.tbhold_min = self.tracker.tbhold_min
@@ -5140,6 +5297,24 @@ class ViewerApp(ctk.CTk):
     def _on_tbfovsize_changed(self, val): 
         config.tbfovsize = val
         self.tracker.tbfovsize = val
+
+    def _on_trigger_ads_fov_enabled_changed(self):
+        config.trigger_ads_fov_enabled = self.var_trigger_ads_fov_enabled.get()
+        if hasattr(self, "tracker"):
+            self.tracker.trigger_ads_fov_enabled = config.trigger_ads_fov_enabled
+        if str(getattr(self, "_active_tab_name", "")) == "Trigger":
+            self._show_tb_tab()
+
+    def _on_trigger_ads_fovsize_changed(self, val):
+        config.trigger_ads_fovsize = val
+        if hasattr(self, "tracker"):
+            self.tracker.trigger_ads_fovsize = val
+
+    def _on_trigger_ads_key_type_selected(self, val):
+        config.trigger_ads_key_type = ADS_KEY_TYPE_DISPLAY_TO_VALUE.get(str(val), "hold")
+        if hasattr(self, "tracker"):
+            self.tracker.trigger_ads_key_type = config.trigger_ads_key_type
+        self._log_config(f"Trigger ADS Key Type: {val}")
     
     def _on_tbhold_changed(self, val):
         config.tbhold = val
