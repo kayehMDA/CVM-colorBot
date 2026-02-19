@@ -7,6 +7,7 @@ import sys
 from ctypes import wintypes
 
 from . import state
+from .keycodes import to_hid_code, to_vk_code
 
 _loaded_module_path = None
 _USER32 = ctypes.windll.user32
@@ -20,6 +21,8 @@ _VK_BY_IDX = {
     3: 0x05,  # VK_XBUTTON1
     4: 0x06,  # VK_XBUTTON2
 }
+
+_WARNED_KEYBOARD_NOT_SUPPORTED = False
 
 
 def get_expected_kmboxa_dll_name() -> str:
@@ -136,6 +139,50 @@ def is_button_pressed(idx: int) -> bool:
         return False
 
 
+def _call_module_keyboard(candidates, key_code):
+    module = state.kmboxa_module
+    if module is None:
+        return False, None
+
+    for fn_name in candidates:
+        fn = getattr(module, fn_name, None)
+        if fn is None:
+            continue
+        try:
+            return True, fn(int(key_code))
+        except Exception as e:
+            log_print(f"[Mouse-kmboxA] {fn_name} failed: {e}")
+            continue
+    return False, None
+
+
+def _warn_keyboard_not_supported():
+    global _WARNED_KEYBOARD_NOT_SUPPORTED
+    if _WARNED_KEYBOARD_NOT_SUPPORTED:
+        return
+    _WARNED_KEYBOARD_NOT_SUPPORTED = True
+    log_print("[WARN] kmboxA keyboard functions are not available in this module build.")
+
+
+def is_key_pressed(key) -> bool:
+    hid_code = to_hid_code(key)
+    if hid_code is not None:
+        found, value = _call_module_keyboard(("isdown_keyboard", "isdown_key", "isdown", "isdown2"), hid_code)
+        if found:
+            try:
+                return bool(value)
+            except Exception:
+                return False
+
+    vk = to_vk_code(key)
+    if vk is None:
+        return False
+    try:
+        return bool(_USER32.GetAsyncKeyState(int(vk)) & 0x8000)
+    except Exception:
+        return False
+
+
 def move(x: float, y: float):
     if state.kmboxa_module is None:
         return
@@ -156,3 +203,36 @@ def left(isdown: int):
         state.kmboxa_module.left(1 if isdown else 0)
     except Exception as e:
         log_print(f"[Mouse-kmboxA] left failed: {e}")
+
+
+def key_down(key):
+    key_code = to_hid_code(key)
+    if key_code is None:
+        return
+    found, _ = _call_module_keyboard(("down", "key_down", "keydown", "KM_down"), key_code)
+    if not found:
+        _warn_keyboard_not_supported()
+
+
+def key_up(key):
+    key_code = to_hid_code(key)
+    if key_code is None:
+        return
+    found, _ = _call_module_keyboard(("up", "key_up", "keyup", "KM_up"), key_code)
+    if not found:
+        _warn_keyboard_not_supported()
+
+
+def key_press(key):
+    key_code = to_hid_code(key)
+    if key_code is None:
+        return
+    found, _ = _call_module_keyboard(("press", "key_press", "keypress", "KM_press"), key_code)
+    if found:
+        return
+
+    # Fallback to down/up when module does not expose direct press.
+    found_down, _ = _call_module_keyboard(("down", "key_down", "keydown", "KM_down"), key_code)
+    found_up, _ = _call_module_keyboard(("up", "key_up", "keyup", "KM_up"), key_code)
+    if not (found_down or found_up):
+        _warn_keyboard_not_supported()

@@ -5,6 +5,7 @@ import threading
 import time
 
 from . import state
+from .keycodes import to_hid_code, to_key_token
 
 _POLL_INTERVAL_SEC = 0.03
 _SOCKET_TIMEOUT_SEC = 0.02
@@ -218,6 +219,16 @@ def _send_no_wait(command: str):
         log_print(f"[Mouse-DHZ] command failed: {command} ({err})")
 
 
+def _resolve_dhz_key_token(key):
+    token = to_key_token(key)
+    if token is not None:
+        return token
+    hid_code = to_hid_code(key)
+    if hid_code is None:
+        return None
+    return str(int(hid_code))
+
+
 def move(x: float, y: float):
     _send_no_wait(f"move({int(x)},{int(y)})")
 
@@ -249,3 +260,68 @@ def side2(isdown: int):
 
 def wheel(delta: int):
     _send_no_wait(f"wheel({int(delta)})")
+
+
+def key_down(key):
+    token = _resolve_dhz_key_token(key)
+    if token is None:
+        return
+    _send_no_wait(f"keydown({token})")
+
+
+def key_up(key):
+    token = _resolve_dhz_key_token(key)
+    if token is None:
+        return
+    _send_no_wait(f"keyup({token})")
+
+
+def key_press(key):
+    token = _resolve_dhz_key_token(key)
+    if token is None:
+        return
+    key_down(token)
+    key_up(token)
+
+
+def is_key_pressed(key) -> bool:
+    if not state.is_connected or state.active_backend != "DHZ" or state.dhz_client is None:
+        return False
+
+    token = _resolve_dhz_key_token(key)
+    if token is None:
+        return False
+
+    commands = [f"isdown2({token})", f"isdown({token})"]
+    hid_code = to_hid_code(key)
+    if hid_code is not None:
+        commands.append(f"isdown2({int(hid_code)})")
+        commands.append(f"isdown({int(hid_code)})")
+
+    seen = set()
+    for command in commands:
+        if command in seen:
+            continue
+        seen.add(command)
+        ok, pressed, _ = state.dhz_client.query_bool(command, timeout=_SOCKET_TIMEOUT_SEC, retries=0)
+        if ok:
+            return bool(pressed)
+    return False
+
+
+def mask_key(key):
+    token = _resolve_dhz_key_token(key)
+    if token is None:
+        return
+    _send_no_wait(f"mask_keyboard({token})")
+
+
+def unmask_key(key):
+    token = _resolve_dhz_key_token(key)
+    if token is None:
+        return
+    _send_no_wait(f"dismask_keyboard({token})")
+
+
+def unmask_all_keys():
+    _send_no_wait("dismask_keyboard_all()")

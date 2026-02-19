@@ -3,11 +3,14 @@ import ctypes
 from ctypes import wintypes
 
 from . import state
+from .keycodes import to_vk_code
 
 INPUT_MOUSE = 0
+INPUT_KEYBOARD = 1
 MOUSEEVENTF_MOVE = 0x0001
 MOUSEEVENTF_LEFTDOWN = 0x0002
 MOUSEEVENTF_LEFTUP = 0x0004
+KEYEVENTF_KEYUP = 0x0002
 
 if ctypes.sizeof(ctypes.c_void_p) == 8:
     ULONG_PTR = ctypes.c_ulonglong
@@ -26,8 +29,18 @@ class MOUSEINPUT(ctypes.Structure):
     ]
 
 
+class KEYBDINPUT(ctypes.Structure):
+    _fields_ = [
+        ("wVk", wintypes.WORD),
+        ("wScan", wintypes.WORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", ULONG_PTR),
+    ]
+
+
 class _INPUTUNION(ctypes.Union):
-    _fields_ = [("mi", MOUSEINPUT)]
+    _fields_ = [("mi", MOUSEINPUT), ("ki", KEYBDINPUT)]
 
 
 class INPUT(ctypes.Structure):
@@ -81,6 +94,16 @@ def is_button_pressed(idx: int) -> bool:
         return False
 
 
+def is_key_pressed(key) -> bool:
+    vk = to_vk_code(key)
+    if vk is None:
+        return False
+    try:
+        return bool(_USER32.GetAsyncKeyState(int(vk)) & 0x8000)
+    except Exception:
+        return False
+
+
 def _send_mouse(flags: int, dx: int = 0, dy: int = 0, data: int = 0):
     if not state.is_connected or state.active_backend != "SendInput":
         return
@@ -102,6 +125,26 @@ def _send_mouse(flags: int, dx: int = 0, dy: int = 0, data: int = 0):
             state.last_connect_error = f"SendInput failed (winerr={err})"
 
 
+def _send_keyboard(vk_code: int, key_up: bool = False):
+    if not state.is_connected or state.active_backend != "SendInput":
+        return
+
+    key_input = KEYBDINPUT(
+        wVk=int(vk_code),
+        wScan=0,
+        dwFlags=(KEYEVENTF_KEYUP if key_up else 0),
+        time=0,
+        dwExtraInfo=0,
+    )
+    packet = INPUT(type=INPUT_KEYBOARD, ki=key_input)
+
+    sent = int(_USER32.SendInput(1, ctypes.byref(packet), ctypes.sizeof(INPUT)))
+    if sent != 1:
+        err = ctypes.get_last_error()
+        if err:
+            state.last_connect_error = f"SendInput keyboard failed (winerr={err})"
+
+
 def move(x: float, y: float):
     _send_mouse(MOUSEEVENTF_MOVE, dx=int(x), dy=int(y))
 
@@ -112,6 +155,28 @@ def move_bezier(x: float, y: float, segments: int, ctrl_x: float, ctrl_y: float)
 
 def left(isdown: int):
     _send_mouse(MOUSEEVENTF_LEFTDOWN if isdown else MOUSEEVENTF_LEFTUP)
+
+
+def key_down(key):
+    vk = to_vk_code(key)
+    if vk is None:
+        return
+    _send_keyboard(vk_code=vk, key_up=False)
+
+
+def key_up(key):
+    vk = to_vk_code(key)
+    if vk is None:
+        return
+    _send_keyboard(vk_code=vk, key_up=True)
+
+
+def key_press(key):
+    vk = to_vk_code(key)
+    if vk is None:
+        return
+    _send_keyboard(vk_code=vk, key_up=False)
+    _send_keyboard(vk_code=vk, key_up=True)
 
 
 def test_move():

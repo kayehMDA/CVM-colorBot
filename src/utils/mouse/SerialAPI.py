@@ -6,6 +6,7 @@ import serial
 from serial.tools import list_ports
 
 from . import state
+from .keycodes import to_hid_code
 
 SUPPORTED_DEVICES = [
     ("1A86:55D3", "MAKCU"),
@@ -243,6 +244,44 @@ def middle(isdown: int):
     with state.makcu_lock:
         state.makcu.write(f"km.middle({1 if isdown else 0})\r".encode())
         state.makcu.flush()
+
+
+def _resolve_hid_key_code(key):
+    key_code = to_hid_code(key)
+    if key_code is None:
+        return None
+    try:
+        return int(key_code)
+    except Exception:
+        return None
+
+
+def key_down(key):
+    key_code = _resolve_hid_key_code(key)
+    if key_code is None:
+        return
+    _send_cmd_no_wait(f"down({key_code})")
+
+
+def key_up(key):
+    key_code = _resolve_hid_key_code(key)
+    if key_code is None:
+        return
+    _send_cmd_no_wait(f"up({key_code})")
+
+
+def key_press(key):
+    key_code = _resolve_hid_key_code(key)
+    if key_code is None:
+        return
+    _send_cmd_no_wait(f"press({key_code})")
+
+
+def is_key_pressed(key) -> bool:
+    # Serial listener currently tracks mouse buttons only.
+    # Keyboard state query is intentionally read-free to avoid listener conflicts.
+    _ = key
+    return False
 
 
 def test_move():

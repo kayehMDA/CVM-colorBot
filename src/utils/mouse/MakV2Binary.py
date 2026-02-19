@@ -7,6 +7,7 @@ import serial
 from serial.tools import list_ports
 
 from . import state
+from .keycodes import to_hid_code
 
 SUPPORTED_DEVICES = [
     ("1A86:55D3", "MAKCU"),
@@ -315,6 +316,43 @@ def middle(isdown: int):
         return
     payload = struct.pack("<B", 1 if isdown else 0)
     _send_cmd_no_wait_binary(CMD_MIDDLE, payload)
+
+
+def _resolve_hid_key_code(key):
+    key_code = to_hid_code(key)
+    if key_code is None:
+        return None
+    try:
+        return int(key_code)
+    except Exception:
+        return None
+
+
+def key_down(key):
+    key_code = _resolve_hid_key_code(key)
+    if key_code is None:
+        return
+    _send_cmd_ascii(f"down({key_code})")
+
+
+def key_up(key):
+    key_code = _resolve_hid_key_code(key)
+    if key_code is None:
+        return
+    _send_cmd_ascii(f"up({key_code})")
+
+
+def key_press(key):
+    key_code = _resolve_hid_key_code(key)
+    if key_code is None:
+        return
+    _send_cmd_ascii(f"press({key_code})")
+
+
+def is_key_pressed(key) -> bool:
+    # MakV2Binary listener currently tracks mouse buttons only.
+    _ = key
+    return False
 
 
 def lock_button_idx(idx: int):

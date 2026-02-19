@@ -7,6 +7,8 @@ from serial.tools import list_ports
 
 from . import state
 
+_WARNED_KEYBOARD_NOT_SUPPORTED = False
+
 DEFAULT_BAUD_RATES = [115200, 9600]
 PORT_HINTS = [
     "ARDUINO",
@@ -244,6 +246,34 @@ def left(isdown: int):
 
 def click():
     _send_line("c")
+
+
+def _warn_keyboard_not_supported():
+    global _WARNED_KEYBOARD_NOT_SUPPORTED
+    if _WARNED_KEYBOARD_NOT_SUPPORTED:
+        return
+    _WARNED_KEYBOARD_NOT_SUPPORTED = True
+    log_print("[WARN] Arduino backend keyboard API is not implemented in current firmware bridge.")
+
+
+def key_down(key):
+    _ = key
+    _warn_keyboard_not_supported()
+
+
+def key_up(key):
+    _ = key
+    _warn_keyboard_not_supported()
+
+
+def key_press(key):
+    _ = key
+    _warn_keyboard_not_supported()
+
+
+def is_key_pressed(key) -> bool:
+    _ = key
+    return False
 
 
 def test_move():

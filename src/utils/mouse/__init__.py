@@ -490,6 +490,130 @@ def is_button_pressed(idx: int) -> bool:
     return SerialAPI.is_button_pressed(idx)
 
 
+def is_key_pressed(key) -> bool:
+    if not state.is_connected:
+        _sync_public_state()
+        return False
+
+    if state.active_backend == "Net":
+        return NetAPI.is_key_pressed(key)
+    if state.active_backend == "KmboxA":
+        return KmboxAAPI.is_key_pressed(key)
+    if state.active_backend == "DHZ":
+        return DHZAPI.is_key_pressed(key)
+    if state.active_backend == "MakV2Binary":
+        return MakV2Binary.is_key_pressed(key)
+    if state.active_backend == "MakV2":
+        return MakV2.is_key_pressed(key)
+    if state.active_backend == "Arduino":
+        return ArduinoAPI.is_key_pressed(key)
+    if state.active_backend == "SendInput":
+        return SendInputAPI.is_key_pressed(key)
+    return SerialAPI.is_key_pressed(key)
+
+
+def key_down(key):
+    if not state.is_connected:
+        _sync_public_state()
+        return
+
+    if state.active_backend == "Net":
+        NetAPI.key_down(key)
+    elif state.active_backend == "KmboxA":
+        KmboxAAPI.key_down(key)
+    elif state.active_backend == "DHZ":
+        DHZAPI.key_down(key)
+    elif state.active_backend == "MakV2Binary":
+        MakV2Binary.key_down(key)
+    elif state.active_backend == "MakV2":
+        MakV2.key_down(key)
+    elif state.active_backend == "Arduino":
+        ArduinoAPI.key_down(key)
+    elif state.active_backend == "SendInput":
+        SendInputAPI.key_down(key)
+    else:
+        SerialAPI.key_down(key)
+
+
+def key_up(key):
+    if not state.is_connected:
+        _sync_public_state()
+        return
+
+    if state.active_backend == "Net":
+        NetAPI.key_up(key)
+    elif state.active_backend == "KmboxA":
+        KmboxAAPI.key_up(key)
+    elif state.active_backend == "DHZ":
+        DHZAPI.key_up(key)
+    elif state.active_backend == "MakV2Binary":
+        MakV2Binary.key_up(key)
+    elif state.active_backend == "MakV2":
+        MakV2.key_up(key)
+    elif state.active_backend == "Arduino":
+        ArduinoAPI.key_up(key)
+    elif state.active_backend == "SendInput":
+        SendInputAPI.key_up(key)
+    else:
+        SerialAPI.key_up(key)
+
+
+def key_press(key):
+    if not state.is_connected:
+        _sync_public_state()
+        return
+
+    if state.active_backend == "Net":
+        NetAPI.key_press(key)
+    elif state.active_backend == "KmboxA":
+        KmboxAAPI.key_press(key)
+    elif state.active_backend == "DHZ":
+        DHZAPI.key_press(key)
+    elif state.active_backend == "MakV2Binary":
+        MakV2Binary.key_press(key)
+    elif state.active_backend == "MakV2":
+        MakV2.key_press(key)
+    elif state.active_backend == "Arduino":
+        ArduinoAPI.key_press(key)
+    elif state.active_backend == "SendInput":
+        SendInputAPI.key_press(key)
+    else:
+        SerialAPI.key_press(key)
+
+
+def mask_key(key):
+    if not state.is_connected:
+        _sync_public_state()
+        return
+
+    if state.active_backend == "Net":
+        NetAPI.mask_key(key)
+    elif state.active_backend == "DHZ":
+        DHZAPI.mask_key(key)
+
+
+def unmask_key(key):
+    if not state.is_connected:
+        _sync_public_state()
+        return
+
+    if state.active_backend == "Net":
+        NetAPI.unmask_key(key)
+    elif state.active_backend == "DHZ":
+        DHZAPI.unmask_key(key)
+
+
+def unmask_all_keys():
+    if not state.is_connected:
+        _sync_public_state()
+        return
+
+    if state.active_backend == "Net":
+        NetAPI.unmask_all_keys()
+    elif state.active_backend == "DHZ":
+        DHZAPI.unmask_all_keys()
+
+
 def switch_to_4m():
     result = SerialAPI.switch_to_4m()
     _sync_public_state()
@@ -739,6 +863,27 @@ class Mouse:
         else:
             SerialAPI.left(0)
         log_release("Mouse.release()")
+
+    def key_down(self, key):
+        key_down(key)
+
+    def key_up(self, key):
+        key_up(key)
+
+    def key_press(self, key):
+        key_press(key)
+
+    def is_key_pressed(self, key):
+        return is_key_pressed(key)
+
+    def mask_key(self, key):
+        mask_key(key)
+
+    def unmask_key(self, key):
+        unmask_key(key)
+
+    def unmask_all_keys(self):
+        unmask_all_keys()
 
     @staticmethod
     def mask_manager_tick(selected_idx: int, aimbot_running: bool):

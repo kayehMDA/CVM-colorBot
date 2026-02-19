@@ -6,6 +6,7 @@ import serial
 from serial.tools import list_ports
 
 from . import state
+from .keycodes import to_hid_code
 
 DEFAULT_BAUD_RATES = [4_000_000, 2_000_000, 1_000_000, 115_200]
 
@@ -206,6 +207,43 @@ def move_bezier(x: float, y: float, segments: int, ctrl_x: float, ctrl_y: float)
 
 def left(isdown: int):
     _send_cmd_no_wait(f"left({1 if isdown else 0})")
+
+
+def _resolve_hid_key_code(key):
+    key_code = to_hid_code(key)
+    if key_code is None:
+        return None
+    try:
+        return int(key_code)
+    except Exception:
+        return None
+
+
+def key_down(key):
+    key_code = _resolve_hid_key_code(key)
+    if key_code is None:
+        return
+    _send_cmd_no_wait(f"down({key_code})")
+
+
+def key_up(key):
+    key_code = _resolve_hid_key_code(key)
+    if key_code is None:
+        return
+    _send_cmd_no_wait(f"up({key_code})")
+
+
+def key_press(key):
+    key_code = _resolve_hid_key_code(key)
+    if key_code is None:
+        return
+    _send_cmd_no_wait(f"press({key_code})")
+
+
+def is_key_pressed(key) -> bool:
+    # MakV2 listener currently tracks mouse buttons only.
+    _ = key
+    return False
 
 
 def lock_button_idx(idx: int):
