@@ -28,7 +28,7 @@ ENV/
 configs/*
 !configs/default.json
 docs/*
-!docs/CVM-docs-main
+!docs/CVM-docs-main/
 docs/CVM-docs-main/*
 !docs/CVM-docs-main/**
 *.log
