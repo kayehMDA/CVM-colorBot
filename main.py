@@ -965,6 +965,7 @@ if __name__ == "__main__":
     """
     import customtkinter as ctk
     from src.ui import ViewerApp
+    from src.webmenu import WebMenuServer
     
     # 鍒濆鍖栨崟鐛叉湇鍕?
     capture_service = CaptureService()
@@ -1004,8 +1005,38 @@ if __name__ == "__main__":
     from src.utils.updater import get_update_checker
     updater = get_update_checker()
     print(f"[Main] Current version: v{updater.get_current_version()}")
-    
-    app.protocol("WM_DELETE_WINDOW", app._on_close)
+
+    webmenu_server = WebMenuServer(
+        config=config,
+        tracker=tracker,
+        capture_service=capture_service,
+        version_provider=updater.get_current_version,
+    )
+
+    def _ensure_webmenu_running():
+        try:
+            webmenu_server.start()
+            for url in webmenu_server.get_urls():
+                print(f"[WebMenu] {url}")
+            return True
+        except Exception as e:
+            print(f"[WebMenu] Failed to start: {e}")
+            return False
+
+    app._ensure_webmenu_running = _ensure_webmenu_running
+    app._webmenu_server = webmenu_server
+
+    if bool(getattr(config, "webmenu_enabled", False)):
+        _ensure_webmenu_running()
+
+    def _on_app_close():
+        try:
+            webmenu_server.stop()
+        except Exception as e:
+            print(f"[WebMenu] Stop error: {e}")
+        app._on_close()
+
+    app.protocol("WM_DELETE_WINDOW", _on_app_close)
     
     # Schedule update check after UI is ready (2 seconds delay)
     app.after(2000, app._check_for_updates)

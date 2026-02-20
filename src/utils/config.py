@@ -277,6 +277,13 @@ class Config:
         
         # --- Processing FPS Limit ---
         self.target_fps = 80  # Target processing FPS (limits main loop frequency)
+
+        # --- WebMenu (LAN) ---
+        self.webmenu_enabled = False
+        self.webmenu_host = "0.0.0.0"
+        self.webmenu_port = 8765
+        self.webmenu_allow_lan_only = True
+        self.webmenu_poll_ms = 750
         
         # --- Button Mask Settings ---
         self.button_mask_enabled = False  # 绺介枊闂?
@@ -548,6 +555,11 @@ class Config:
             "capture_range_y": self.capture_range_y,
             "capture_offset_x": self.capture_offset_x,
             "capture_offset_y": self.capture_offset_y,
+            "webmenu_enabled": self.webmenu_enabled,
+            "webmenu_host": self.webmenu_host,
+            "webmenu_port": self.webmenu_port,
+            "webmenu_allow_lan_only": self.webmenu_allow_lan_only,
+            "webmenu_poll_ms": self.webmenu_poll_ms,
             
             # Button Mask Settings
             "button_mask_enabled": self.button_mask_enabled,
@@ -706,6 +718,21 @@ class Config:
             )
         except Exception:
             self.trigger_strafe_manual_neutral_ms = 0
+
+        self.webmenu_enabled = bool(getattr(self, "webmenu_enabled", False))
+        host_value = str(getattr(self, "webmenu_host", "0.0.0.0")).strip()
+        self.webmenu_host = host_value or "0.0.0.0"
+        try:
+            self.webmenu_port = int(getattr(self, "webmenu_port", 8765))
+        except Exception:
+            self.webmenu_port = 8765
+        self.webmenu_port = max(1, min(65535, self.webmenu_port))
+        self.webmenu_allow_lan_only = bool(getattr(self, "webmenu_allow_lan_only", True))
+        try:
+            self.webmenu_poll_ms = int(getattr(self, "webmenu_poll_ms", 750))
+        except Exception:
+            self.webmenu_poll_ms = 750
+        self.webmenu_poll_ms = max(100, min(5000, self.webmenu_poll_ms))
     
     def save_to_file(self, filename="config.json"):
         """淇濆瓨閰嶇疆鍒版枃浠?"""

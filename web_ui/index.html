@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CVM colorBot WebMenu</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-title">[ CVM colorBot ]</div>
+        <div class="brand-version" id="brand-version">v?.?.?</div>
+      </div>
+      <div class="nav-label">// Navigation</div>
+      <nav class="nav">
+        <button class="nav-item active" data-tab="general">General</button>
+        <button class="nav-item" data-tab="main-aimbot">Main Aimbot</button>
+        <button class="nav-item" data-tab="sec-aimbot">Sec Aimbot</button>
+        <button class="nav-item" data-tab="trigger">Trigger</button>
+        <button class="nav-item" data-tab="rcs">RCS</button>
+        <button class="nav-item" data-tab="config">Config</button>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <div class="status" id="status-dot"></div>
+        <div class="status-text" id="status-text">Connected</div>
+        <button class="sync-btn" id="save-btn">SYNC</button>
+      </header>
+
+      <section class="panel">
+        <div class="panel-title" id="panel-title">--enable General</div>
+
+        <div id="tab-general" class="tab-content active">
+          <div class="form-grid">
+            <label class="row">
+              <span>Color</span>
+              <select id="color">
+                <option value="purple">purple</option>
+                <option value="yellow">yellow</option>
+                <option value="red">red</option>
+                <option value="custom">custom</option>
+              </select>
+            </label>
+            <label class="row">
+              <span>Capture Mode</span>
+              <select id="capture_mode">
+                <option value="NDI">NDI</option>
+                <option value="UDP">UDP</option>
+                <option value="CaptureCard">CaptureCard</option>
+                <option value="MSS">MSS</option>
+              </select>
+            </label>
+            <label class="row slider-row">
+              <span>Target FPS</span>
+              <input id="target_fps" type="range" min="1" max="360" step="1">
+              <input id="target_fps_num" class="num" type="number" min="1" max="360" step="1">
+            </label>
+          </div>
+        </div>
+
+        <div id="tab-main-aimbot" class="tab-content">
+          <div class="form-grid">
+            <label class="row"><span>Enable Aimbot</span><input id="enableaim" type="checkbox"></label>
+            <label class="row"><span>Mode</span><select id="mode">
+              <option value="Normal">Normal</option><option value="Silent">Silent</option>
+              <option value="NCAF">NCAF</option><option value="WindMouse">WindMouse</option><option value="Bezier">Bezier</option>
+            </select></label>
+            <label class="row slider-row"><span>FOV Size</span><input id="fovsize" type="range" min="1" max="1000" step="1"><input id="fovsize_num" class="num" type="number" min="1" max="1000" step="1"></label>
+            <label class="row slider-row"><span>X Speed</span><input id="normal_x_speed" type="range" min="0.1" max="2000" step="0.1"><input id="normal_x_speed_num" class="num" type="number" min="0.1" max="2000" step="0.1"></label>
+            <label class="row slider-row"><span>Y Speed</span><input id="normal_y_speed" type="range" min="0.1" max="2000" step="0.1"><input id="normal_y_speed_num" class="num" type="number" min="0.1" max="2000" step="0.1"></label>
+            <label class="row slider-row"><span>Smoothness</span><input id="normalsmooth" type="range" min="1" max="30" step="1"><input id="normalsmooth_num" class="num" type="number" min="1" max="30" step="1"></label>
+            <label class="row"><span>ADS FOV</span><input id="ads_fov_enabled" type="checkbox"></label>
+            <label class="row slider-row"><span>ADS Size</span><input id="ads_fovsize" type="range" min="1" max="1000" step="1"><input id="ads_fovsize_num" class="num" type="number" min="1" max="1000" step="1"></label>
+            <label class="row"><span>Aim Type</span><select id="aim_type"><option value="head">head</option><option value="body">body</option><option value="nearest">nearest</option></select></label>
+          </div>
+        </div>
+
+        <div id="tab-sec-aimbot" class="tab-content">
+          <div class="form-grid">
+            <label class="row"><span>Enable Sec Aimbot</span><input id="enableaim_sec" type="checkbox"></label>
+            <label class="row"><span>Mode</span><select id="mode_sec">
+              <option value="Normal">Normal</option><option value="Silent">Silent</option>
+              <option value="NCAF">NCAF</option><option value="WindMouse">WindMouse</option><option value="Bezier">Bezier</option>
+            </select></label>
+            <label class="row slider-row"><span>FOV Size</span><input id="fovsize_sec" type="range" min="1" max="1000" step="1"><input id="fovsize_sec_num" class="num" type="number" min="1" max="1000" step="1"></label>
+            <label class="row slider-row"><span>X Speed</span><input id="normal_x_speed_sec" type="range" min="0.1" max="2000" step="0.1"><input id="normal_x_speed_sec_num" class="num" type="number" min="0.1" max="2000" step="0.1"></label>
+            <label class="row slider-row"><span>Y Speed</span><input id="normal_y_speed_sec" type="range" min="0.1" max="2000" step="0.1"><input id="normal_y_speed_sec_num" class="num" type="number" min="0.1" max="2000" step="0.1"></label>
+            <label class="row slider-row"><span>Smoothness</span><input id="normalsmooth_sec" type="range" min="1" max="30" step="1"><input id="normalsmooth_sec_num" class="num" type="number" min="1" max="30" step="1"></label>
+            <label class="row"><span>ADS FOV</span><input id="ads_fov_enabled_sec" type="checkbox"></label>
+            <label class="row slider-row"><span>ADS Size</span><input id="ads_fovsize_sec" type="range" min="1" max="1000" step="1"><input id="ads_fovsize_sec_num" class="num" type="number" min="1" max="1000" step="1"></label>
+            <label class="row"><span>Aim Type</span><select id="aim_type_sec"><option value="head">head</option><option value="body">body</option><option value="nearest">nearest</option></select></label>
+          </div>
+        </div>
+
+        <div id="tab-trigger" class="tab-content">
+          <div class="form-grid">
+            <label class="row"><span>Enable Triggerbot</span><input id="enabletb" type="checkbox"></label>
+            <label class="row"><span>Trigger Type</span><select id="trigger_type"><option value="current">current</option><option value="rgb">rgb</option></select></label>
+            <label class="row slider-row"><span>Trigger FOV</span><input id="tbfovsize" type="range" min="1" max="300" step="1"><input id="tbfovsize_num" class="num" type="number" min="1" max="300" step="1"></label>
+            <label class="row slider-row"><span>Delay Min (s)</span><input id="tbdelay_min" type="range" min="0" max="1" step="0.01"><input id="tbdelay_min_num" class="num" type="number" min="0" max="1" step="0.01"></label>
+            <label class="row slider-row"><span>Delay Max (s)</span><input id="tbdelay_max" type="range" min="0" max="1" step="0.01"><input id="tbdelay_max_num" class="num" type="number" min="0" max="1" step="0.01"></label>
+            <label class="row slider-row"><span>ROI Size</span><input id="trigger_roi_size" type="range" min="4" max="128" step="1"><input id="trigger_roi_size_num" class="num" type="number" min="4" max="128" step="1"></label>
+            <label class="row slider-row"><span>Min Pixels</span><input id="trigger_min_pixels" type="range" min="1" max="200" step="1"><input id="trigger_min_pixels_num" class="num" type="number" min="1" max="200" step="1"></label>
+            <label class="row slider-row"><span>Min Ratio</span><input id="trigger_min_ratio" type="range" min="0" max="1" step="0.01"><input id="trigger_min_ratio_num" class="num" type="number" min="0" max="1" step="0.01"></label>
+            <label class="row"><span>Trigger ADS FOV</span><input id="trigger_ads_fov_enabled" type="checkbox"></label>
+            <label class="row slider-row"><span>Trigger ADS Size</span><input id="trigger_ads_fovsize" type="range" min="1" max="300" step="1"><input id="trigger_ads_fovsize_num" class="num" type="number" min="1" max="300" step="1"></label>
+          </div>
+        </div>
+
+        <div id="tab-rcs" class="tab-content">
+          <div class="form-grid">
+            <label class="row"><span>Enable RCS</span><input id="enablercs" type="checkbox"></label>
+            <label class="row slider-row"><span>Pull Speed</span><input id="rcs_pull_speed" type="range" min="1" max="20" step="1"><input id="rcs_pull_speed_num" class="num" type="number" min="1" max="20" step="1"></label>
+            <label class="row slider-row"><span>Activation Delay (ms)</span><input id="rcs_activation_delay" type="range" min="50" max="500" step="1"><input id="rcs_activation_delay_num" class="num" type="number" min="50" max="500" step="1"></label>
+            <label class="row slider-row"><span>Rapid Click Threshold</span><input id="rcs_rapid_click_threshold" type="range" min="100" max="1000" step="1"><input id="rcs_rapid_click_threshold_num" class="num" type="number" min="100" max="1000" step="1"></label>
+            <label class="row"><span>Release Y Enabled</span><input id="rcs_release_y_enabled" type="checkbox"></label>
+            <label class="row slider-row"><span>Release Duration (s)</span><input id="rcs_release_y_duration" type="range" min="0.1" max="5" step="0.1"><input id="rcs_release_y_duration_num" class="num" type="number" min="0.1" max="5" step="0.1"></label>
+          </div>
+        </div>
+
+        <div id="tab-config" class="tab-content">
+          <div class="form-grid">
+            <label class="row">
+              <span>Saved Configs</span>
+              <select id="saved_config_select"></select>
+            </label>
+            <div class="row">
+              <span></span>
+              <div class="btn-row">
+                <button id="load_config_btn" class="sync-btn small">LOAD SELECTED</button>
+              </div>
+            </div>
+            <label class="row">
+              <span>New Config Name</span>
+              <input id="new_config_name" type="text" placeholder="my-config">
+            </label>
+            <div class="row">
+              <span></span>
+              <div class="btn-row">
+                <button id="save_new_config_btn" class="sync-btn small">SAVE NEW</button>
+                <button id="refresh_configs_btn" class="sync-btn small">REFRESH</button>
+              </div>
+            </div>
+            <div class="row">
+              <span>Status</span>
+              <div id="config_action_status" class="inline-status">Idle</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
