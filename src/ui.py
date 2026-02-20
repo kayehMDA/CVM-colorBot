@@ -2507,6 +2507,10 @@ class ViewerApp(ctk.CTk):
         self._add_switch("Enable Anti-Smoke", self.var_anti_smoke, self._on_anti_smoke_changed)
         self._checkbox_vars["anti_smoke_enabled"] = self.var_anti_smoke
         
+        self.var_humanized_aim = tk.BooleanVar(value=getattr(config, "humanized_aim_enabled", False))
+        self._add_switch("Humanized Aim (Normal)", self.var_humanized_aim, self._on_humanized_aim_changed)
+        self._checkbox_vars["humanized_aim_enabled"] = self.var_humanized_aim
+        
         # 鈹€鈹€ OPERATION MODE (collapsible) 鈹€鈹€
         sec_mode = self._create_collapsible_section(self.content_frame, "Operation Mode", initially_open=True)
         self.mode_option = self._add_option_row_in_frame(sec_mode, "Mode", ["Normal", "Silent", "NCAF", "WindMouse", "Bezier"], self._on_mode_selected)
@@ -2723,6 +2727,10 @@ class ViewerApp(ctk.CTk):
         self.var_anti_smoke_sec = tk.BooleanVar(value=getattr(config, "anti_smoke_enabled_sec", False))
         self._add_switch("Enable Anti-Smoke", self.var_anti_smoke_sec, self._on_anti_smoke_sec_changed)
         self._checkbox_vars["anti_smoke_enabled_sec"] = self.var_anti_smoke_sec
+        
+        self.var_humanized_aim_sec = tk.BooleanVar(value=getattr(config, "humanized_aim_enabled_sec", False))
+        self._add_switch("Humanized Aim (Normal)", self.var_humanized_aim_sec, self._on_humanized_aim_sec_changed)
+        self._checkbox_vars["humanized_aim_enabled_sec"] = self.var_humanized_aim_sec
         
         # 鈹€鈹€ OPERATION MODE (collapsible) 鈹€鈹€
         sec_mode = self._create_collapsible_section(self.content_frame, "Operation Mode", initially_open=True)
@@ -4721,6 +4729,7 @@ class ViewerApp(ctk.CTk):
             self.tracker.normal_y_speed = config.normal_y_speed
             self.tracker.normalsmooth = config.normalsmooth
             self.tracker.normalsmoothfov = config.normalsmoothfov
+            self.tracker.humanized_aim_enabled = getattr(config, "humanized_aim_enabled", False)
             self.tracker.mouse_dpi = config.mouse_dpi
             self.tracker.fovsize = config.fovsize
             self.tracker.ads_fov_enabled = getattr(config, "ads_fov_enabled", False)
@@ -4786,6 +4795,7 @@ class ViewerApp(ctk.CTk):
             self.tracker.normal_y_speed_sec = config.normal_y_speed_sec
             self.tracker.normalsmooth_sec = config.normalsmooth_sec
             self.tracker.normalsmoothfov_sec = config.normalsmoothfov_sec
+            self.tracker.humanized_aim_enabled_sec = getattr(config, "humanized_aim_enabled_sec", False)
             self.tracker.fovsize_sec = config.fovsize_sec
             self.tracker.ads_fov_enabled_sec = getattr(config, "ads_fov_enabled_sec", False)
             self.tracker.ads_fovsize_sec = getattr(config, "ads_fovsize_sec", config.fovsize_sec)
@@ -6217,6 +6227,9 @@ class ViewerApp(ctk.CTk):
             config.normal_y_speed = self.tracker.normal_y_speed
             config.normalsmooth = self.tracker.normalsmooth
             config.normalsmoothfov = self.tracker.normalsmoothfov
+            config.humanized_aim_enabled = getattr(
+                self.tracker, "humanized_aim_enabled", getattr(config, "humanized_aim_enabled", False)
+            )
             config.fovsize = self.tracker.fovsize
             config.ads_fov_enabled = getattr(self.tracker, "ads_fov_enabled", getattr(config, "ads_fov_enabled", False))
             config.ads_fovsize = getattr(self.tracker, "ads_fovsize", getattr(config, "ads_fovsize", config.fovsize))
@@ -6247,6 +6260,9 @@ class ViewerApp(ctk.CTk):
             config.normal_y_speed_sec = self.tracker.normal_y_speed_sec
             config.normalsmooth_sec = self.tracker.normalsmooth_sec
             config.normalsmoothfov_sec = self.tracker.normalsmoothfov_sec
+            config.humanized_aim_enabled_sec = getattr(
+                self.tracker, "humanized_aim_enabled_sec", getattr(config, "humanized_aim_enabled_sec", False)
+            )
             config.fovsize_sec = self.tracker.fovsize_sec
             config.ads_fov_enabled_sec = getattr(self.tracker, "ads_fov_enabled_sec", getattr(config, "ads_fov_enabled_sec", False))
             config.ads_fovsize_sec = getattr(self.tracker, "ads_fovsize_sec", getattr(config, "ads_fovsize_sec", config.fovsize_sec))
@@ -6443,6 +6459,11 @@ class ViewerApp(ctk.CTk):
     
     def _on_enableaim_changed(self): 
         config.enableaim = self.var_enableaim.get()
+
+    def _on_humanized_aim_changed(self):
+        config.humanized_aim_enabled = self.var_humanized_aim.get()
+        if hasattr(self, "tracker"):
+            self.tracker.humanized_aim_enabled = config.humanized_aim_enabled
 
     def _on_ads_fov_enabled_changed(self):
         config.ads_fov_enabled = self.var_ads_fov_enabled.get()
@@ -6660,6 +6681,11 @@ class ViewerApp(ctk.CTk):
     
     def _on_enableaim_sec_changed(self): 
         config.enableaim_sec = self.var_enableaim_sec.get()
+
+    def _on_humanized_aim_sec_changed(self):
+        config.humanized_aim_enabled_sec = self.var_humanized_aim_sec.get()
+        if hasattr(self, "tracker"):
+            self.tracker.humanized_aim_enabled_sec = config.humanized_aim_enabled_sec
 
     def _on_ads_fov_enabled_sec_changed(self):
         config.ads_fov_enabled_sec = self.var_ads_fov_enabled_sec.get()

@@ -5,6 +5,7 @@
 """
 import math
 import queue
+import random
 import threading
 import time
 
@@ -139,6 +140,48 @@ def _quantize_with_residual(tracker, ndx, ndy, is_sec=False):
     return out_x, out_y
 
 
+def _apply_humanized_adjustment(ndx, ndy, distance_to_center, smoothfov, tracker, is_sec=False):
+    """Apply light human-like variance so aim stays quick but less pixel-perfect."""
+    state_key = "_humanized_state_sec" if is_sec else "_humanized_state_main"
+    state = getattr(tracker, state_key, None)
+    if not isinstance(state, dict):
+        state = {
+            "scale": 1.0,
+            "bias_x": 0.0,
+            "bias_y": 0.0,
+            "out_x": 0.0,
+            "out_y": 0.0,
+            "tick": 0,
+        }
+        setattr(tracker, state_key, state)
+
+    state["tick"] += 1
+    dist = max(0.0, float(distance_to_center))
+    near_zone = max(6.0, float(smoothfov) * 0.85)
+    near_ratio = max(0.0, min(1.0, 1.0 - (dist / near_zone)))
+
+    if state["tick"] % 3 == 0:
+        drift_target_x = random.uniform(-0.5, 0.5) * (0.4 + near_ratio * 0.9)
+        drift_target_y = random.uniform(-0.5, 0.5) * (0.3 + near_ratio * 0.6)
+        state["bias_x"] = state["bias_x"] * 0.65 + drift_target_x * 0.35
+        state["bias_y"] = state["bias_y"] * 0.65 + drift_target_y * 0.35
+        target_scale = random.uniform(0.94, 1.04 + (near_ratio * 0.03))
+        state["scale"] = state["scale"] * 0.7 + target_scale * 0.3
+
+    scale = float(state["scale"])
+    under_correct = 1.0 - (near_ratio * 0.08)
+    blend = 0.72 + (0.18 * near_ratio)
+
+    candidate_x = (float(ndx) * scale * under_correct) + float(state["bias_x"])
+    candidate_y = (float(ndy) * scale * under_correct) + float(state["bias_y"])
+
+    out_x = float(state["out_x"]) * (1.0 - blend) + candidate_x * blend
+    out_y = float(state["out_y"]) * (1.0 - blend) + candidate_y * blend
+    state["out_x"] = out_x
+    state["out_y"] = out_y
+    return out_x, out_y
+
+
 def compute_silent_delta(dx, dy, multiplier, max_speed):
     """Scale silent movement and clamp into safe range."""
     dx_scaled = float(dx) * float(multiplier)
@@ -172,6 +215,7 @@ def _apply_normal_aim(dx, dy, distance_to_center, tracker, is_sec=False):
         y_speed = float(getattr(config, "normal_y_speed_sec", tracker.normal_y_speed_sec))
         smooth = float(getattr(config, "normalsmooth_sec", tracker.normalsmooth_sec))
         smoothfov = float(getattr(config, "normalsmoothfov_sec", tracker.normalsmoothfov_sec))
+        humanized_enabled = bool(getattr(config, "humanized_aim_enabled_sec", False))
         fov = float(get_active_aim_fov(is_sec=True, fallback=tracker.fovsize_sec))
         label = "Sec Aimbot (Normal)"
     else:
@@ -179,6 +223,7 @@ def _apply_normal_aim(dx, dy, distance_to_center, tracker, is_sec=False):
         y_speed = float(getattr(config, "normal_y_speed", tracker.normal_y_speed))
         smooth = float(getattr(config, "normalsmooth", tracker.normalsmooth))
         smoothfov = float(getattr(config, "normalsmoothfov", tracker.normalsmoothfov))
+        humanized_enabled = bool(getattr(config, "humanized_aim_enabled", False))
         fov = float(get_active_aim_fov(is_sec=False, fallback=tracker.fovsize))
         label = "Main Aimbot (Normal)"
     
@@ -193,6 +238,20 @@ def _apply_normal_aim(dx, dy, distance_to_center, tracker, is_sec=False):
     else:
         ndx *= x_speed
         ndy *= y_speed
+
+    if humanized_enabled:
+        ndx, ndy = _apply_humanized_adjustment(
+            ndx,
+            ndy,
+            distance_to_center,
+            smoothfov,
+            tracker,
+            is_sec=is_sec,
+        )
+    else:
+        state_key = "_humanized_state_sec" if is_sec else "_humanized_state_main"
+        if hasattr(tracker, state_key):
+            setattr(tracker, state_key, None)
     
     ddx, ddy = tracker._clip_movement(ndx, ndy)
     qdx, qdy = _quantize_with_residual(tracker, ddx, ddy, is_sec=is_sec)

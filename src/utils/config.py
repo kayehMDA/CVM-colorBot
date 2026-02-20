@@ -146,6 +146,7 @@ class Config:
 
         self.normalsmooth = 30
         self.normalsmoothfov = 30
+        self.humanized_aim_enabled = False
         
         # --- Secondary Aimbot ---
         self.enableaim_sec = False
@@ -153,6 +154,7 @@ class Config:
         self.normal_y_speed_sec = 2
         self.normalsmooth_sec = 20
         self.normalsmoothfov_sec = 20
+        self.humanized_aim_enabled_sec = False
         self.fovsize_sec = 150
         self.ads_fov_enabled_sec = False
         self.ads_fovsize_sec = 150
@@ -439,6 +441,7 @@ class Config:
             "normal_y_speed": self.normal_y_speed,
             "normalsmooth": self.normalsmooth,
             "normalsmoothfov": self.normalsmoothfov,
+            "humanized_aim_enabled": self.humanized_aim_enabled,
             
             # Secondary Aimbot
             "enableaim_sec": self.enableaim_sec,
@@ -446,6 +449,7 @@ class Config:
             "normal_y_speed_sec": self.normal_y_speed_sec,
             "normalsmooth_sec": self.normalsmooth_sec,
             "normalsmoothfov_sec": self.normalsmoothfov_sec,
+            "humanized_aim_enabled_sec": self.humanized_aim_enabled_sec,
             "fovsize_sec": self.fovsize_sec,
             "ads_fov_enabled_sec": self.ads_fov_enabled_sec,
             "ads_fovsize_sec": self.ads_fovsize_sec,
