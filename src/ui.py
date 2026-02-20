@@ -241,6 +241,8 @@ class ViewerApp(ctk.CTk):
         self.saved_dhz_ip = getattr(config, "dhz_ip", "192.168.2.188")
         self.saved_dhz_port = str(getattr(config, "dhz_port", "5000"))
         self.saved_dhz_random = str(getattr(config, "dhz_random", 0))
+        self.saved_ferrum_device_path = str(getattr(config, "ferrum_device_path", ""))
+        self.saved_ferrum_connection_type = str(getattr(config, "ferrum_connection_type", "auto"))
         self.saved_auto_connect_mouse_api = bool(getattr(config, "auto_connect_mouse_api", False))
         self._mouse_api_connecting = False
         self._mouse_api_connect_job_id = 0
@@ -556,7 +558,7 @@ class ViewerApp(ctk.CTk):
         self.mouse_api_option = self._add_option_row_in_frame(
             sec_hardware,
             "Input API",
-            ["Serial", "Arduino", "SendInput", "Net", "KmboxA", "MakV2", "MakV2Binary", "DHZ"],
+            ["Serial (Makcu)", "Arduino", "SendInput", "Net", "KmboxA", "MakV2", "MakV2Binary", "DHZ"],
             self._on_mouse_api_changed,
         )
         self.var_auto_connect_mouse_api = tk.BooleanVar(value=bool(getattr(config, "auto_connect_mouse_api", False)))
@@ -582,8 +584,10 @@ class ViewerApp(ctk.CTk):
             current_mouse_api = "Arduino"
         elif current_mouse_api_norm in ("sendinput", "win32", "win32api", "win32_sendinput", "win32-sendinput"):
             current_mouse_api = "SendInput"
+        elif current_mouse_api_norm == "ferrum":
+            current_mouse_api = "Ferrum"
         else:
-            current_mouse_api = "Serial"
+            current_mouse_api = "Serial (Makcu)"
         self.mouse_api_option.set(current_mouse_api)
         self.saved_mouse_api = current_mouse_api
         serial_mode = str(getattr(config, "serial_port_mode", self.saved_serial_port_mode)).strip().lower()
@@ -609,6 +613,8 @@ class ViewerApp(ctk.CTk):
         self.saved_dhz_ip = getattr(config, "dhz_ip", self.saved_dhz_ip)
         self.saved_dhz_port = str(getattr(config, "dhz_port", self.saved_dhz_port))
         self.saved_dhz_random = str(getattr(config, "dhz_random", self.saved_dhz_random))
+        self.saved_ferrum_device_path = str(getattr(config, "ferrum_device_path", self.saved_ferrum_device_path))
+        self.saved_ferrum_connection_type = str(getattr(config, "ferrum_connection_type", self.saved_ferrum_connection_type))
         self.saved_auto_connect_mouse_api = bool(getattr(config, "auto_connect_mouse_api", self.saved_auto_connect_mouse_api))
 
         self._add_spacer_in_frame(sec_hardware)
@@ -874,6 +880,10 @@ class ViewerApp(ctk.CTk):
             mode = "Arduino"
         elif mode_norm in ("sendinput", "win32", "win32api", "win32_sendinput", "win32-sendinput"):
             mode = "SendInput"
+        elif mode_norm == "ferrum":
+            mode = "Ferrum"
+        elif mode_norm in ("serial (makcu)", "serial", "makcu"):
+            mode = "Serial"
         else:
             mode = "Serial"
         self.saved_mouse_api = mode
@@ -1075,6 +1085,44 @@ class ViewerApp(ctk.CTk):
             self._add_text_button(btn_frame, "TEST MOVE", self._test_mouse_move).pack(side="left", padx=12)
             return
 
+        if mode == "Ferrum":
+            tip = ctk.CTkLabel(
+                self.hardware_content_frame,
+                text="Ferrum Keyboard and Mouse API (Serial Port, KM style commands)",
+                font=("Roboto", 10),
+                text_color=COLOR_TEXT_DIM,
+            )
+            tip.pack(anchor="w", pady=(0, 8))
+
+            port_frame = ctk.CTkFrame(self.hardware_content_frame, fg_color="transparent")
+            port_frame.pack(fill="x", pady=3)
+            ctk.CTkLabel(port_frame, text="COM Port (optional)", font=FONT_MAIN, text_color=COLOR_TEXT).pack(side="left")
+            self.ferrum_device_path_entry = ctk.CTkEntry(
+                port_frame,
+                fg_color=COLOR_SURFACE,
+                border_width=0,
+                text_color=COLOR_TEXT,
+                width=170,
+            )
+            self.ferrum_device_path_entry.pack(side="right")
+            self.ferrum_device_path_entry.insert(0, self.saved_ferrum_device_path)
+            self.ferrum_device_path_entry.bind("<KeyRelease>", self._on_ferrum_device_path_changed)
+            self.ferrum_device_path_entry.bind("<FocusOut>", self._on_ferrum_device_path_changed)
+
+            notice = ctk.CTkLabel(
+                self.hardware_content_frame,
+                text="Leave empty for auto-detection. Tries baud rates: 115200, 9600, 38400, 57600",
+                font=("Roboto", 9),
+                text_color=COLOR_TEXT_DIM,
+            )
+            notice.pack(anchor="w", pady=(0, 8))
+
+            btn_frame = ctk.CTkFrame(self.hardware_content_frame, fg_color="transparent")
+            btn_frame.pack(fill="x", pady=8)
+            self._add_text_button(btn_frame, "CONNECT FERRUM", lambda: self._connect_mouse_api("Ferrum")).pack(side="left")
+            self._add_text_button(btn_frame, "TEST MOVE", self._test_mouse_move).pack(side="left", padx=12)
+            return
+
         if mode == "KmboxA":
             dll_name = "kmA.pyd"
             try:
@@ -1178,6 +1226,8 @@ class ViewerApp(ctk.CTk):
             self.saved_mouse_api = "Arduino"
         elif mode_norm in ("sendinput", "win32", "win32api", "win32_sendinput", "win32-sendinput"):
             self.saved_mouse_api = "SendInput"
+        elif mode_norm == "ferrum":
+            self.saved_mouse_api = "Ferrum"
         else:
             self.saved_mouse_api = "Serial"
         config.mouse_api = self.saved_mouse_api
@@ -1310,6 +1360,19 @@ class ViewerApp(ctk.CTk):
             except ValueError:
                 pass
 
+    def _on_ferrum_device_path_changed(self, event=None):
+        if hasattr(self, "ferrum_device_path_entry") and self.ferrum_device_path_entry.winfo_exists():
+            val = self.ferrum_device_path_entry.get().strip()
+            self.saved_ferrum_device_path = val
+            config.ferrum_device_path = val
+
+    def _on_ferrum_connection_type_selected(self, val):
+        connection_type_norm = str(val).strip().lower()
+        if connection_type_norm not in ("auto", "serial", "network", "usb_hid"):
+            connection_type_norm = "auto"
+        self.saved_ferrum_connection_type = connection_type_norm
+        config.ferrum_connection_type = connection_type_norm
+
     def _test_mouse_move(self):
         try:
             from src.utils import mouse as mouse_backend
@@ -1382,6 +1445,8 @@ class ViewerApp(ctk.CTk):
             mode = "Arduino"
         elif mode_norm in ("sendinput", "win32", "win32api", "win32_sendinput", "win32-sendinput"):
             mode = "SendInput"
+        elif mode_norm == "ferrum":
+            mode = "Ferrum"
         else:
             mode = "Serial"
         payload = {"mode": mode}
@@ -1478,6 +1543,15 @@ class ViewerApp(ctk.CTk):
                 "dhz_port": self.saved_dhz_port,
                 "dhz_random": config.dhz_random,
             })
+        elif mode == "Ferrum":
+            if hasattr(self, "ferrum_device_path_entry") and self.ferrum_device_path_entry.winfo_exists():
+                self.saved_ferrum_device_path = self.ferrum_device_path_entry.get().strip()
+
+            config.ferrum_device_path = self.saved_ferrum_device_path
+            payload.update({
+                "ferrum_device_path": self.saved_ferrum_device_path,
+                "ferrum_connection_type": "serial",  # Ferrum 只支持串口
+            })
         elif mode == "SendInput":
             pass
 
@@ -1534,6 +1608,12 @@ class ViewerApp(ctk.CTk):
                     dhz_ip=payload.get("dhz_ip", ""),
                     dhz_port=payload.get("dhz_port", ""),
                     dhz_random=payload.get("dhz_random", 0),
+                )
+            elif mode == "Ferrum":
+                success, error = switch_backend(
+                    "Ferrum",
+                    ferrum_device_path=payload.get("ferrum_device_path", ""),
+                    ferrum_connection_type="serial",  # Ferrum 只支持串口
                 )
             else:
                 success, error = switch_backend(
@@ -2672,6 +2752,42 @@ class ViewerApp(ctk.CTk):
                 config.rgb_color_profile = "purple"
             self.rgb_color_profile_option.set(
                 RGB_TRIGGER_PROFILE_DISPLAY.get(current_rgb_profile, "Purple")
+            )
+
+            # Custom RGB Settings (collapsible, only show when custom is selected)
+            self.custom_rgb_section, self.custom_rgb_container = self._create_collapsible_section(
+                sec_rgb, "Custom RGB", initially_open=True, auto_pack=False
+            )
+            if current_rgb_profile == "custom":
+                self.custom_rgb_container.pack(fill="x", pady=(5, 0))
+
+            # R, G, B sliders
+            self._add_slider_in_frame(
+                self.custom_rgb_section,
+                "R",
+                "rgb_custom_r",
+                0,
+                255,
+                int(getattr(config, "rgb_custom_r", 161)),
+                lambda v: self._on_rgb_custom_changed("rgb_custom_r", v),
+            )
+            self._add_slider_in_frame(
+                self.custom_rgb_section,
+                "G",
+                "rgb_custom_g",
+                0,
+                255,
+                int(getattr(config, "rgb_custom_g", 69)),
+                lambda v: self._on_rgb_custom_changed("rgb_custom_g", v),
+            )
+            self._add_slider_in_frame(
+                self.custom_rgb_section,
+                "B",
+                "rgb_custom_b",
+                0,
+                255,
+                int(getattr(config, "rgb_custom_b", 163)),
+                lambda v: self._on_rgb_custom_changed("rgb_custom_b", v),
             )
 
             self._add_range_slider_in_frame(
@@ -5443,6 +5559,8 @@ class ViewerApp(ctk.CTk):
             return "Arduino"
         if mode_norm in ("sendinput", "win32", "win32api", "win32_sendinput", "win32-sendinput"):
             return "SendInput"
+        if mode_norm == "ferrum":
+            return "Ferrum"
         return "Serial"
 
     def _supports_trigger_strafe_ui(self, mode=None) -> bool:
@@ -5453,7 +5571,7 @@ class ViewerApp(ctk.CTk):
             return bool(mouse_backend.supports_trigger_strafe_ui(selected_mode))
         except Exception:
             normalized = self._normalize_mouse_api_name(selected_mode)
-            return normalized in {"SendInput", "Net", "KmboxA", "DHZ"}
+            return normalized in {"SendInput", "Net", "KmboxA", "DHZ", "Ferrum"}
 
     def _supports_keyboard_state(self, mode=None) -> bool:
         selected_mode = mode if mode is not None else getattr(config, "mouse_api", "Serial")
@@ -5606,9 +5724,12 @@ class ViewerApp(ctk.CTk):
 
             connected = bool(getattr(mouse_backend, "is_connected", False))
             if connected:
-                active_mode = self._normalize_mouse_api_name(mouse_backend.get_active_backend())
-                if active_mode:
-                    mode = active_mode
+                active_backend = mouse_backend.get_active_backend()
+                if active_backend:
+                    # 優先使用實際連接的 backend，而不是 config 中的 mouse_api
+                    active_mode = self._normalize_mouse_api_name(active_backend)
+                    if active_mode:
+                        mode = active_mode
         except Exception:
             connected = False
 
@@ -6038,6 +6159,28 @@ class ViewerApp(ctk.CTk):
                 self.tracker.model, self.tracker.class_names = reload_model()
                 log_print(f"[UI] Custom HSV updated: {key} = {int(val)}")
     
+    def _update_custom_rgb_visibility(self):
+        """Show or hide Custom RGB section based on selected RGB profile."""
+        current_rgb_profile = str(getattr(config, "rgb_color_profile", "purple")).strip().lower()
+        is_custom = current_rgb_profile == "custom"
+
+        if hasattr(self, 'custom_rgb_container'):
+            if is_custom:
+                if not self.custom_rgb_container.winfo_ismapped():
+                    self.custom_rgb_container.pack(fill="x", pady=(5, 0))
+            else:
+                if self.custom_rgb_container.winfo_ismapped():
+                    self.custom_rgb_container.pack_forget()
+    
+    def _on_rgb_custom_changed(self, key, val):
+        """Custom RGB 值改變時的回調"""
+        setattr(config, key, int(val))
+        # 確保值在有效範圍內
+        setattr(config, key, max(0, min(255, int(val))))
+        if hasattr(self, "tracker"):
+            self.tracker.rgb_color_profile = config.rgb_color_profile
+        log_print(f"[UI] Custom RGB updated: {key} = {int(val)}")
+    
     def _open_hsv_preview(self):
         """Abre a janela de preview HSV em tempo real."""
         if hasattr(self, '_hsv_preview_window') and self._hsv_preview_window is not None:
@@ -6364,6 +6507,8 @@ class ViewerApp(ctk.CTk):
         if hasattr(self, "tracker"):
             self.tracker.rgb_color_profile = config.rgb_color_profile
         self._log_config(f"RGB Preset: {val}")
+        # Update Custom RGB section visibility
+        self._update_custom_rgb_visibility()
 
     def _on_tb_button_selected(self, val):
         for k, name in BUTTONS.items():
