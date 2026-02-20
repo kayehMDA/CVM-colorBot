@@ -160,6 +160,7 @@ RGB_TRIGGER_PROFILE_DISPLAY = {
     "red": "Red",
     "yellow": "Yellow",
     "purple": "Purple",
+    "custom": "Custom",
 }
 
 TRIGGER_STRAFE_MODE_DISPLAY = {
@@ -177,6 +178,8 @@ class ViewerApp(ctk.CTk):
         # --- Window setup ---
         self.title("CVM colorBot")
         self.geometry("1280x950")
+        self._legacy_ui_mode = bool(getattr(config, "legacy_ui_mode", False))
+        _apply_theme_preset("classic" if self._legacy_ui_mode else "neon")
         
         # 注意: 若啟用 overrideredirect(True)，系統框線與 taskbar 行為可能不同
         # If you need normal window decorations, keep it commented out.
@@ -248,6 +251,8 @@ class ViewerApp(ctk.CTk):
         self.saved_dhz_ip = getattr(config, "dhz_ip", "192.168.2.188")
         self.saved_dhz_port = str(getattr(config, "dhz_port", "5000"))
         self.saved_dhz_random = str(getattr(config, "dhz_random", 0))
+        self.saved_ferrum_device_path = str(getattr(config, "ferrum_device_path", ""))
+        self.saved_ferrum_connection_type = str(getattr(config, "ferrum_connection_type", "auto"))
         self.saved_auto_connect_mouse_api = bool(getattr(config, "auto_connect_mouse_api", False))
         self._mouse_api_connecting = False
         self._mouse_api_connect_job_id = 0
@@ -458,6 +463,20 @@ class ViewerApp(ctk.CTk):
             corner_radius=8
         )
         self.theme_btn.pack(fill="x", pady=5)
+
+        self.ui_style_btn = ctk.CTkButton(
+            bottom_frame,
+            text=f"UI Style: {'Classic' if self._legacy_ui_mode else 'Neon'}",
+            fg_color=COLOR_SURFACE,
+            text_color=COLOR_TEXT_DIM,
+            hover_color=COLOR_SURFACE,
+            anchor="w",
+            height=25,
+            font=("Roboto", 10),
+            command=self._toggle_ui_style,
+            corner_radius=8,
+        )
+        self.ui_style_btn.pack(fill="x", pady=(0, 5))
         
         # 效能資訊 Performance labels
         self.fps_label = ctk.CTkLabel(
@@ -648,6 +667,40 @@ class ViewerApp(ctk.CTk):
             ctk.set_appearance_mode("Dark")
             self.theme_btn.configure(text="Dark Mode")
 
+    def _toggle_ui_style(self):
+        self._legacy_ui_mode = not self._legacy_ui_mode
+        config.legacy_ui_mode = bool(self._legacy_ui_mode)
+        self._rebuild_layout_for_ui_style()
+
+    def _rebuild_layout_for_ui_style(self):
+        tab_name = str(getattr(self, "_active_tab_name", "General"))
+        self._cancel_binding_capture()
+
+        for attr in ("title_bar", "sidebar", "content_frame"):
+            widget = getattr(self, attr, None)
+            if widget is not None:
+                try:
+                    widget.destroy()
+                except Exception:
+                    pass
+
+        _apply_theme_preset("classic" if self._legacy_ui_mode else "neon")
+        self.configure(fg_color=COLOR_BG)
+        self._build_layout()
+
+        tab_map = {
+            "General": self._show_general_tab,
+            "Main Aimbot": self._show_aimbot_tab,
+            "Sec Aimbot": self._show_sec_aimbot_tab,
+            "Trigger": self._show_tb_tab,
+            "RCS": self._show_rcs_tab,
+            "Config": self._show_config_tab,
+            "Debug": self._show_debug_tab,
+        }
+        tab_fn = tab_map.get(tab_name)
+        if tab_fn is not None and tab_name != "General":
+            self._handle_nav_click(tab_name, tab_fn)
+
     # --- 各分頁內容 Tabs ---
 
     def _show_general_tab(self):
@@ -660,7 +713,7 @@ class ViewerApp(ctk.CTk):
         self.mouse_api_option = self._add_option_row_in_frame(
             sec_hardware,
             "Input API",
-            ["Serial", "Arduino", "SendInput", "Net", "KmboxA", "MakV2", "MakV2Binary", "DHZ"],
+            ["Serial (Makcu)", "Arduino", "SendInput", "Net", "KmboxA", "MakV2", "MakV2Binary", "DHZ"],
             self._on_mouse_api_changed,
         )
         self.var_auto_connect_mouse_api = tk.BooleanVar(value=bool(getattr(config, "auto_connect_mouse_api", False)))
@@ -686,8 +739,10 @@ class ViewerApp(ctk.CTk):
             current_mouse_api = "Arduino"
         elif current_mouse_api_norm in ("sendinput", "win32", "win32api", "win32_sendinput", "win32-sendinput"):
             current_mouse_api = "SendInput"
+        elif current_mouse_api_norm == "ferrum":
+            current_mouse_api = "Ferrum"
         else:
-            current_mouse_api = "Serial"
+            current_mouse_api = "Serial (Makcu)"
         self.mouse_api_option.set(current_mouse_api)
         self.saved_mouse_api = current_mouse_api
         serial_mode = str(getattr(config, "serial_port_mode", self.saved_serial_port_mode)).strip().lower()
@@ -713,6 +768,8 @@ class ViewerApp(ctk.CTk):
         self.saved_dhz_ip = getattr(config, "dhz_ip", self.saved_dhz_ip)
         self.saved_dhz_port = str(getattr(config, "dhz_port", self.saved_dhz_port))
         self.saved_dhz_random = str(getattr(config, "dhz_random", self.saved_dhz_random))
+        self.saved_ferrum_device_path = str(getattr(config, "ferrum_device_path", self.saved_ferrum_device_path))
+        self.saved_ferrum_connection_type = str(getattr(config, "ferrum_connection_type", self.saved_ferrum_connection_type))
         self.saved_auto_connect_mouse_api = bool(getattr(config, "auto_connect_mouse_api", self.saved_auto_connect_mouse_api))
 
         self._add_spacer_in_frame(sec_hardware)
@@ -978,6 +1035,10 @@ class ViewerApp(ctk.CTk):
             mode = "Arduino"
         elif mode_norm in ("sendinput", "win32", "win32api", "win32_sendinput", "win32-sendinput"):
             mode = "SendInput"
+        elif mode_norm == "ferrum":
+            mode = "Ferrum"
+        elif mode_norm in ("serial (makcu)", "serial", "makcu"):
+            mode = "Serial"
         else:
             mode = "Serial"
         self.saved_mouse_api = mode
@@ -1179,6 +1240,44 @@ class ViewerApp(ctk.CTk):
             self._add_text_button(btn_frame, "TEST MOVE", self._test_mouse_move).pack(side="left", padx=12)
             return
 
+        if mode == "Ferrum":
+            tip = ctk.CTkLabel(
+                self.hardware_content_frame,
+                text="Ferrum Keyboard and Mouse API (Serial Port, KM style commands)",
+                font=("Roboto", 10),
+                text_color=COLOR_TEXT_DIM,
+            )
+            tip.pack(anchor="w", pady=(0, 8))
+
+            port_frame = ctk.CTkFrame(self.hardware_content_frame, fg_color="transparent")
+            port_frame.pack(fill="x", pady=3)
+            ctk.CTkLabel(port_frame, text="COM Port (optional)", font=FONT_MAIN, text_color=COLOR_TEXT).pack(side="left")
+            self.ferrum_device_path_entry = ctk.CTkEntry(
+                port_frame,
+                fg_color=COLOR_SURFACE,
+                border_width=0,
+                text_color=COLOR_TEXT,
+                width=170,
+            )
+            self.ferrum_device_path_entry.pack(side="right")
+            self.ferrum_device_path_entry.insert(0, self.saved_ferrum_device_path)
+            self.ferrum_device_path_entry.bind("<KeyRelease>", self._on_ferrum_device_path_changed)
+            self.ferrum_device_path_entry.bind("<FocusOut>", self._on_ferrum_device_path_changed)
+
+            notice = ctk.CTkLabel(
+                self.hardware_content_frame,
+                text="Leave empty for auto-detection. Tries baud rates: 115200, 9600, 38400, 57600",
+                font=("Roboto", 9),
+                text_color=COLOR_TEXT_DIM,
+            )
+            notice.pack(anchor="w", pady=(0, 8))
+
+            btn_frame = ctk.CTkFrame(self.hardware_content_frame, fg_color="transparent")
+            btn_frame.pack(fill="x", pady=8)
+            self._add_text_button(btn_frame, "CONNECT FERRUM", lambda: self._connect_mouse_api("Ferrum")).pack(side="left")
+            self._add_text_button(btn_frame, "TEST MOVE", self._test_mouse_move).pack(side="left", padx=12)
+            return
+
         if mode == "KmboxA":
             dll_name = "kmA.pyd"
             try:
@@ -1282,6 +1381,8 @@ class ViewerApp(ctk.CTk):
             self.saved_mouse_api = "Arduino"
         elif mode_norm in ("sendinput", "win32", "win32api", "win32_sendinput", "win32-sendinput"):
             self.saved_mouse_api = "SendInput"
+        elif mode_norm == "ferrum":
+            self.saved_mouse_api = "Ferrum"
         else:
             self.saved_mouse_api = "Serial"
         config.mouse_api = self.saved_mouse_api
@@ -1414,6 +1515,19 @@ class ViewerApp(ctk.CTk):
             except ValueError:
                 pass
 
+    def _on_ferrum_device_path_changed(self, event=None):
+        if hasattr(self, "ferrum_device_path_entry") and self.ferrum_device_path_entry.winfo_exists():
+            val = self.ferrum_device_path_entry.get().strip()
+            self.saved_ferrum_device_path = val
+            config.ferrum_device_path = val
+
+    def _on_ferrum_connection_type_selected(self, val):
+        connection_type_norm = str(val).strip().lower()
+        if connection_type_norm not in ("auto", "serial", "network", "usb_hid"):
+            connection_type_norm = "auto"
+        self.saved_ferrum_connection_type = connection_type_norm
+        config.ferrum_connection_type = connection_type_norm
+
     def _test_mouse_move(self):
         try:
             from src.utils import mouse as mouse_backend
@@ -1486,6 +1600,8 @@ class ViewerApp(ctk.CTk):
             mode = "Arduino"
         elif mode_norm in ("sendinput", "win32", "win32api", "win32_sendinput", "win32-sendinput"):
             mode = "SendInput"
+        elif mode_norm == "ferrum":
+            mode = "Ferrum"
         else:
             mode = "Serial"
         payload = {"mode": mode}
@@ -1582,6 +1698,15 @@ class ViewerApp(ctk.CTk):
                 "dhz_port": self.saved_dhz_port,
                 "dhz_random": config.dhz_random,
             })
+        elif mode == "Ferrum":
+            if hasattr(self, "ferrum_device_path_entry") and self.ferrum_device_path_entry.winfo_exists():
+                self.saved_ferrum_device_path = self.ferrum_device_path_entry.get().strip()
+
+            config.ferrum_device_path = self.saved_ferrum_device_path
+            payload.update({
+                "ferrum_device_path": self.saved_ferrum_device_path,
+                "ferrum_connection_type": "serial",  # Ferrum 只支持串口
+            })
         elif mode == "SendInput":
             pass
 
@@ -1638,6 +1763,12 @@ class ViewerApp(ctk.CTk):
                     dhz_ip=payload.get("dhz_ip", ""),
                     dhz_port=payload.get("dhz_port", ""),
                     dhz_random=payload.get("dhz_random", 0),
+                )
+            elif mode == "Ferrum":
+                success, error = switch_backend(
+                    "Ferrum",
+                    ferrum_device_path=payload.get("ferrum_device_path", ""),
+                    ferrum_connection_type="serial",  # Ferrum 只支持串口
                 )
             else:
                 success, error = switch_backend(
@@ -2777,6 +2908,71 @@ class ViewerApp(ctk.CTk):
             self.rgb_color_profile_option.set(
                 RGB_TRIGGER_PROFILE_DISPLAY.get(current_rgb_profile, "Purple")
             )
+
+            # Custom RGB Settings (collapsible, only show when custom is selected)
+            self.custom_rgb_section, self.custom_rgb_container = self._create_collapsible_section(
+                sec_rgb, "Custom RGB", initially_open=True, auto_pack=False
+            )
+            if current_rgb_profile == "custom":
+                self.custom_rgb_container.pack(fill="x", pady=(5, 0))
+
+            # R, G, B sliders
+            self._add_slider_in_frame(
+                self.custom_rgb_section,
+                "R",
+                "rgb_custom_r",
+                0,
+                255,
+                int(getattr(config, "rgb_custom_r", 161)),
+                lambda v: self._on_rgb_custom_changed("rgb_custom_r", v),
+            )
+            self._add_slider_in_frame(
+                self.custom_rgb_section,
+                "G",
+                "rgb_custom_g",
+                0,
+                255,
+                int(getattr(config, "rgb_custom_g", 69)),
+                lambda v: self._on_rgb_custom_changed("rgb_custom_g", v),
+            )
+            self._add_slider_in_frame(
+                self.custom_rgb_section,
+                "B",
+                "rgb_custom_b",
+                0,
+                255,
+                int(getattr(config, "rgb_custom_b", 163)),
+                lambda v: self._on_rgb_custom_changed("rgb_custom_b", v),
+            )
+
+            # Color preview frame
+            preview_frame = ctk.CTkFrame(self.custom_rgb_section, fg_color="transparent")
+            preview_frame.pack(fill="x", pady=(10, 5))
+            
+            ctk.CTkLabel(
+                preview_frame,
+                text="Color Preview",
+                font=FONT_MAIN,
+                text_color=COLOR_TEXT
+            ).pack(side="left")
+            
+            # Calculate initial RGB color hex
+            r = max(0, min(255, int(getattr(config, "rgb_custom_r", 161))))
+            g = max(0, min(255, int(getattr(config, "rgb_custom_g", 69))))
+            b = max(0, min(255, int(getattr(config, "rgb_custom_b", 163))))
+            initial_color_hex = f"#{r:02x}{g:02x}{b:02x}"
+            
+            # Color preview box
+            self.rgb_color_preview = ctk.CTkFrame(
+                preview_frame,
+                width=100,
+                height=30,
+                corner_radius=4,
+                fg_color=initial_color_hex,
+                border_width=1,
+                border_color=COLOR_BORDER
+            )
+            self.rgb_color_preview.pack(side="right", padx=(10, 0))
 
             self._add_range_slider_in_frame(
                 sec_rgb,
@@ -4570,6 +4766,7 @@ class ViewerApp(ctk.CTk):
                             "red": "Red",
                             "yellow": "Yellow",
                             "purple": "Purple",
+                            "custom": "Custom",
                         }
                         self._set_option_value(k, rgb_profile_display.get(str(v).lower(), "Purple"))
                     elif k == "trigger_activation_type":
@@ -5663,6 +5860,8 @@ class ViewerApp(ctk.CTk):
             return "Arduino"
         if mode_norm in ("sendinput", "win32", "win32api", "win32_sendinput", "win32-sendinput"):
             return "SendInput"
+        if mode_norm == "ferrum":
+            return "Ferrum"
         return "Serial"
 
     def _supports_trigger_strafe_ui(self, mode=None) -> bool:
@@ -5673,7 +5872,7 @@ class ViewerApp(ctk.CTk):
             return bool(mouse_backend.supports_trigger_strafe_ui(selected_mode))
         except Exception:
             normalized = self._normalize_mouse_api_name(selected_mode)
-            return normalized in {"SendInput", "Net", "KmboxA", "DHZ"}
+            return normalized in {"SendInput", "Net", "KmboxA", "DHZ", "Ferrum"}
 
     def _supports_keyboard_state(self, mode=None) -> bool:
         selected_mode = mode if mode is not None else getattr(config, "mouse_api", "Serial")
@@ -5826,9 +6025,12 @@ class ViewerApp(ctk.CTk):
 
             connected = bool(getattr(mouse_backend, "is_connected", False))
             if connected:
-                active_mode = self._normalize_mouse_api_name(mouse_backend.get_active_backend())
-                if active_mode:
-                    mode = active_mode
+                active_backend = mouse_backend.get_active_backend()
+                if active_backend:
+                    # 優先使用實際連接的 backend，而不是 config 中的 mouse_api
+                    active_mode = self._normalize_mouse_api_name(active_backend)
+                    if active_mode:
+                        mode = active_mode
         except Exception:
             connected = False
 
@@ -6258,6 +6460,46 @@ class ViewerApp(ctk.CTk):
                 self.tracker.model, self.tracker.class_names = reload_model()
                 log_print(f"[UI] Custom HSV updated: {key} = {int(val)}")
     
+    def _update_custom_rgb_visibility(self):
+        """Show or hide Custom RGB section based on selected RGB profile."""
+        current_rgb_profile = str(getattr(config, "rgb_color_profile", "purple")).strip().lower()
+        is_custom = current_rgb_profile == "custom"
+
+        if hasattr(self, 'custom_rgb_container'):
+            if is_custom:
+                if not self.custom_rgb_container.winfo_ismapped():
+                    self.custom_rgb_container.pack(fill="x", pady=(5, 0))
+            else:
+                if self.custom_rgb_container.winfo_ismapped():
+                    self.custom_rgb_container.pack_forget()
+    
+    def _get_rgb_color_hex(self):
+        """Get current RGB color as hex string."""
+        r = max(0, min(255, int(getattr(config, "rgb_custom_r", 161))))
+        g = max(0, min(255, int(getattr(config, "rgb_custom_g", 69))))
+        b = max(0, min(255, int(getattr(config, "rgb_custom_b", 163))))
+        return f"#{r:02x}{g:02x}{b:02x}"
+    
+    def _update_rgb_color_preview(self):
+        """Update RGB color preview box."""
+        if hasattr(self, "rgb_color_preview"):
+            try:
+                color_hex = self._get_rgb_color_hex()
+                self.rgb_color_preview.configure(fg_color=color_hex)
+            except Exception as e:
+                log_print(f"[UI] Failed to update RGB color preview: {e}")
+    
+    def _on_rgb_custom_changed(self, key, val):
+        """Custom RGB 值改變時的回調"""
+        setattr(config, key, int(val))
+        # 確保值在有效範圍內
+        setattr(config, key, max(0, min(255, int(val))))
+        if hasattr(self, "tracker"):
+            self.tracker.rgb_color_profile = config.rgb_color_profile
+        # Update color preview
+        self._update_rgb_color_preview()
+        log_print(f"[UI] Custom RGB updated: {key} = {int(val)}")
+    
     def _open_hsv_preview(self):
         """Abre a janela de preview HSV em tempo real."""
         if hasattr(self, '_hsv_preview_window') and self._hsv_preview_window is not None:
@@ -6565,11 +6807,19 @@ class ViewerApp(ctk.CTk):
             "Red": "red",
             "Yellow": "yellow",
             "Purple": "purple",
+            "Custom": "custom",
         }
         config.rgb_color_profile = rgb_profile_map.get(val, "purple")
+        # Reuse the same global custom HSV profile used by main color selection.
+        if config.rgb_color_profile == "custom":
+            config.color = "custom"
+            if hasattr(self, "tracker"):
+                self.tracker.color = "custom"
         if hasattr(self, "tracker"):
             self.tracker.rgb_color_profile = config.rgb_color_profile
         self._log_config(f"RGB Preset: {val}")
+        # Update Custom RGB section visibility
+        self._update_custom_rgb_visibility()
 
     def _on_tb_button_selected(self, val):
         for k, name in BUTTONS.items():
@@ -6861,13 +7111,13 @@ class UpdateDialog(ctk.CTkToplevel):
         self.update_info = update_info if isinstance(update_info, dict) else {}
 
         self.title("Update Available")
-        self.geometry("520x380")
+        self.geometry("580x380")
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
 
         self.update_idletasks()
-        x = parent.winfo_x() + max(0, (parent.winfo_width() - 520) // 2)
+        x = parent.winfo_x() + max(0, (parent.winfo_width() - 580) // 2)
         y = parent.winfo_y() + max(0, (parent.winfo_height() - 380) // 2)
         self.geometry(f"+{x}+{y}")
 
@@ -6877,8 +7127,59 @@ class UpdateDialog(ctk.CTkToplevel):
         for key in ("notes", "changelog", "description", "message"):
             value = self.update_info.get(key)
             if isinstance(value, str) and value.strip():
-                return value.strip()
+                return self._format_text(value.strip())
         return "A new version is available."
+    
+    def _format_text(self, text: str) -> str:
+        """Format update text with proper line breaks and spacing."""
+        if not text:
+            return text
+        
+        # Split by lines first
+        lines = text.split('\n')
+        formatted_lines = []
+        prev_was_version_header = False
+        
+        for i, line in enumerate(lines):
+            original_line = line
+            line = line.strip()
+            
+            if not line:
+                # Preserve intentional empty lines, but skip if previous was already empty
+                if formatted_lines and formatted_lines[-1]:
+                    formatted_lines.append('')
+                continue
+            
+            # Check if this line is a version header
+            # Patterns: **Version X.X.X:**, Version X.X.X:, **vX.X.X:**, etc.
+            is_version_header = (
+                ('**Version' in line and ':**' in line) or
+                (line.startswith('Version') and ':' in line and any(c.isdigit() for c in line)) or
+                ('**v' in line and ':**' in line) or
+                (line.startswith('v') and ':' in line and any(c.isdigit() for c in line))
+            )
+            
+            # Add spacing before version headers (except the first one)
+            if is_version_header:
+                if formatted_lines and formatted_lines[-1] and not prev_was_version_header:
+                    formatted_lines.append('')  # Add empty line before version header
+                prev_was_version_header = True
+            else:
+                prev_was_version_header = False
+            
+            # Remove markdown bold markers for cleaner display
+            formatted_line = line.replace('**', '')
+            
+            formatted_lines.append(formatted_line)
+        
+        # Join with newlines
+        result = '\n'.join(formatted_lines)
+        
+        # Clean up excessive empty lines (max 2 consecutive empty lines)
+        while '\n\n\n' in result:
+            result = result.replace('\n\n\n', '\n\n')
+        
+        return result.strip()
 
     def _pick_url(self):
         for key in ("download_url", "release_url", "url"):
@@ -6905,9 +7206,13 @@ class UpdateDialog(ctk.CTkToplevel):
             border_width=0,
             corner_radius=8,
             height=220,
+            wrap="word",  # Enable word wrapping
         )
         notes_box.pack(fill="both", expand=True, padx=20, pady=(0, 12))
-        notes_box.insert("1.0", self._pick_text())
+        
+        # Insert formatted text with proper spacing
+        formatted_text = self._pick_text()
+        notes_box.insert("1.0", formatted_text)
         notes_box.configure(state="disabled")
 
         btn_row = ctk.CTkFrame(frame, fg_color="transparent")
@@ -6951,15 +7256,29 @@ class UpdateDialog(ctk.CTkToplevel):
 
         url = self._pick_url()
         if url:
+            # Primary action button - Download Update
+            ctk.CTkButton(
+                btn_row,
+                text="Download Update",
+                command=lambda: self._open_url(url),
+                fg_color=COLOR_ACCENT,
+                hover_color=COLOR_ACCENT_HOVER,
+                text_color=COLOR_BG,
+                width=140,
+            ).pack(side="right")
+            
+            # Secondary action button - Open Release Page
             ctk.CTkButton(
                 btn_row,
                 text="Open Release",
                 command=lambda: self._open_url(url),
-                fg_color=COLOR_TEXT,
-                hover_color=COLOR_ACCENT_HOVER,
-                text_color=COLOR_BG,
+                fg_color="transparent",
+                border_width=1,
+                border_color=COLOR_BORDER,
+                hover_color=COLOR_SURFACE,
+                text_color=COLOR_TEXT,
                 width=120,
-            ).pack(side="right")
+            ).pack(side="right", padx=(10, 0))
 
     def _on_skip(self):
         try:
