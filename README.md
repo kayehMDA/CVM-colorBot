@@ -199,7 +199,7 @@ This project is licensed under a custom license. See [LICENSE](LICENSE) file for
 
 ## Disclaimer
 
-This software is provided for educational and research purposes only. Users are responsible for ensuring compliance with applicable laws and terms of service of any software or games used with this tool.
+This project is for learning and testing purposes only. This program is designed for dual-PC setups only. The author is not responsible for any game account bans, penalties, or other consequences resulting from the use of this program, and no compensation will be provided. Users must bear the risks of use and understand the possible consequences. Users are responsible for ensuring compliance with applicable laws and terms of service of any software or games used with this tool.
 
 ## Contributing
 
