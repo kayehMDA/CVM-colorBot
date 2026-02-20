@@ -112,7 +112,10 @@ class Config:
         self.rgb_tbhold_max = 60  # ms
         self.rgb_tbcooldown_min = 0.0  # seconds
         self.rgb_tbcooldown_max = 0.0  # seconds
-        self.rgb_color_profile = "purple"  # red, yellow, purple
+        self.rgb_color_profile = "purple"  # red, yellow, purple, custom
+        self.rgb_custom_r = 161
+        self.rgb_custom_g = 69
+        self.rgb_custom_b = 163
         self.tbburst_count_min = 1  # minimum shots per burst
         self.tbburst_count_max = 1  # maximum shots per burst
         self.tbburst_interval_min = 0.0  # minimum interval between burst shots (ms)
@@ -240,6 +243,7 @@ class Config:
         self.show_distance_text = True
         # Persist UI collapsible section open/closed state per tab.
         self.ui_collapsible_states = {}
+        self.legacy_ui_mode = False
         
         # --- Capture Settings ---
         self.udp_ip = "127.0.0.1"
@@ -404,6 +408,9 @@ class Config:
             "rgb_tbcooldown_min": self.rgb_tbcooldown_min,
             "rgb_tbcooldown_max": self.rgb_tbcooldown_max,
             "rgb_color_profile": self.rgb_color_profile,
+            "rgb_custom_r": self.rgb_custom_r,
+            "rgb_custom_g": self.rgb_custom_g,
+            "rgb_custom_b": self.rgb_custom_b,
             "tbburst_count_min": self.tbburst_count_min,
             "tbburst_count_max": self.tbburst_count_max,
             "tbburst_interval_min": self.tbburst_interval_min,
@@ -521,6 +528,7 @@ class Config:
             "show_crosshair": self.show_crosshair,
             "show_distance_text": self.show_distance_text,
             "ui_collapsible_states": self.ui_collapsible_states,
+            "legacy_ui_mode": self.legacy_ui_mode,
             
             # Capture Settings
             "udp_ip": self.udp_ip,
@@ -703,11 +711,26 @@ class Config:
             self.ui_collapsible_states = {str(k): bool(v) for k, v in raw_states.items()}
         else:
             self.ui_collapsible_states = {}
+        self.legacy_ui_mode = bool(getattr(self, "legacy_ui_mode", False))
 
         mode = str(getattr(self, "trigger_strafe_mode", "off")).strip().lower()
         if mode not in {"off", "auto", "manual_wait"}:
             mode = "off"
         self.trigger_strafe_mode = mode
+        rgb_profile = str(getattr(self, "rgb_color_profile", "purple")).strip().lower()
+        if rgb_profile not in {"red", "yellow", "purple", "custom"}:
+            rgb_profile = "purple"
+        self.rgb_color_profile = rgb_profile
+        for channel_key, default in (
+            ("rgb_custom_r", 161),
+            ("rgb_custom_g", 69),
+            ("rgb_custom_b", 163),
+        ):
+            try:
+                channel_value = int(getattr(self, channel_key, default))
+            except Exception:
+                channel_value = int(default)
+            setattr(self, channel_key, max(0, min(255, channel_value)))
         try:
             self.trigger_strafe_auto_lead_ms = max(0, min(50, int(getattr(self, "trigger_strafe_auto_lead_ms", 8))))
         except Exception:

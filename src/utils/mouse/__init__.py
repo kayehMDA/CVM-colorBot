@@ -1,7 +1,7 @@
 import re
 from src.utils.debug_logger import log_click, log_press, log_release, log_print
 
-from . import ArduinoAPI, DHZAPI, KmboxAAPI, MakV2, MakV2Binary, NetAPI, SendInputAPI, SerialAPI, state
+from . import ArduinoAPI, DHZAPI, FerrumAPI, KmboxAAPI, MakV2, MakV2Binary, NetAPI, SendInputAPI, SerialAPI, state
 
 is_connected = False
 
@@ -27,6 +27,8 @@ def _normalize_api_name(mode: str) -> str:
         return "Arduino"
     if mode_norm in ("sendinput", "win32", "win32api", "win32_sendinput", "win32-sendinput"):
         return "SendInput"
+    if mode_norm == "ferrum":
+        return "Ferrum"
     return "Serial"
 
 
@@ -73,6 +75,11 @@ _BACKEND_CAPABILITIES = {
         "trigger_strafe_ui": False,
     },
     "DHZ": {
+        "keyboard_output": True,
+        "keyboard_state": True,
+        "trigger_strafe_ui": True,
+    },
+    "Ferrum": {
         "keyboard_output": True,
         "keyboard_state": True,
         "trigger_strafe_ui": True,
@@ -297,6 +304,23 @@ def _get_arduino_settings(port=None, baud=None):
     return selected_port, selected_baud
 
 
+def _get_ferrum_settings(device_path=None, connection_type=None):
+    cfg_device_path, cfg_connection_type = "", "serial"
+    try:
+        from src.utils.config import config
+
+        cfg_device_path = str(getattr(config, "ferrum_device_path", cfg_device_path))
+        cfg_connection_type = str(getattr(config, "ferrum_connection_type", cfg_connection_type))
+    except Exception:
+        pass
+
+    selected_device_path = str(device_path if device_path is not None else cfg_device_path).strip()
+    selected_connection_type = str(connection_type if connection_type is not None else cfg_connection_type).strip()
+    if selected_connection_type not in ("serial", "auto"):
+        selected_connection_type = "serial"
+    return selected_device_path, selected_connection_type
+
+
 def _disconnect_all_backends():
     SerialAPI.disconnect()
     ArduinoAPI.disconnect()
@@ -304,6 +328,7 @@ def _disconnect_all_backends():
     NetAPI.disconnect()
     KmboxAAPI.disconnect()
     DHZAPI.disconnect()
+    FerrumAPI.disconnect()
     MakV2.disconnect()
     MakV2Binary.disconnect()
 
@@ -392,6 +417,16 @@ def connect_to_sendinput() -> bool:
     return ok
 
 
+def connect_to_ferrum(device_path=None, connection_type=None) -> bool:
+    # Ferrum 只支持串口連接
+    selected_device_path, selected_connection_type = _get_ferrum_settings(
+        device_path=device_path, connection_type=connection_type
+    )
+    ok = FerrumAPI.connect(device_path=selected_device_path if selected_device_path else None, connection_type="serial")
+    _sync_public_state()
+    return ok
+
+
 def connect_to_makcu():
     """
     Backward-compatible entry point.
@@ -412,6 +447,8 @@ def connect_to_makcu():
         return connect_to_arduino()
     if mode == "SendInput":
         return connect_to_sendinput()
+    if mode == "Ferrum":
+        return connect_to_ferrum()
     return connect_to_serial()
 
 
@@ -435,6 +472,8 @@ def switch_backend(
     dhz_ip=None,
     dhz_port=None,
     dhz_random=None,
+    ferrum_device_path=None,
+    ferrum_connection_type="auto",
 ):
     target_mode = _normalize_api_name(mode)
     if uuid is None and mac is not None:
@@ -496,11 +535,19 @@ def switch_backend(
             config.dhz_port = str(dhz_port)
         if dhz_random is not None:
             config.dhz_random = int(dhz_random)
+        if ferrum_device_path is not None:
+            config.ferrum_device_path = str(ferrum_device_path)
+        if ferrum_connection_type is not None:
+            config.ferrum_connection_type = str(ferrum_connection_type)
     except Exception:
         pass
 
-    state.set_connected(False)
+    # 保存目標 backend，避免在 disconnect 時被其他 backend 覆蓋
+    target_backend = target_mode
+    state.set_connected(False, target_backend)
     _disconnect_all_backends()
+    # 確保 active_backend 保持為目標 backend（因為 disconnect 可能會改變它）
+    state.set_connected(False, target_backend)
 
     if target_mode == "Net":
         ok = connect_to_net(ip=ip, port=port, uuid=uuid, mac=mac)
@@ -530,6 +577,10 @@ def switch_backend(
         ok = connect_to_sendinput()
         return ok, (None if ok else (state.last_connect_error or "SendInput backend connect failed"))
 
+    if target_mode == "Ferrum":
+        ok = connect_to_ferrum(device_path=ferrum_device_path, connection_type=ferrum_connection_type)
+        return ok, (None if ok else (state.last_connect_error or "Ferrum backend connect failed"))
+
     ok = connect_to_serial(mode=serial_port_mode, port=serial_port)
     return ok, (None if ok else (state.last_connect_error or "Serial backend connect failed"))
 
@@ -557,6 +608,8 @@ def is_button_pressed(idx: int) -> bool:
         return ArduinoAPI.is_button_pressed(idx)
     if state.active_backend == "SendInput":
         return SendInputAPI.is_button_pressed(idx)
+    if state.active_backend == "Ferrum":
+        return FerrumAPI.is_button_pressed(idx)
     return SerialAPI.is_button_pressed(idx)
 
 
@@ -579,6 +632,8 @@ def is_key_pressed(key) -> bool:
         return ArduinoAPI.is_key_pressed(key)
     if state.active_backend == "SendInput":
         return SendInputAPI.is_key_pressed(key)
+    if state.active_backend == "Ferrum":
+        return FerrumAPI.is_key_pressed(key)
     return SerialAPI.is_key_pressed(key)
 
 
@@ -601,6 +656,8 @@ def key_down(key):
         ArduinoAPI.key_down(key)
     elif state.active_backend == "SendInput":
         SendInputAPI.key_down(key)
+    elif state.active_backend == "Ferrum":
+        FerrumAPI.key_down(key)
     else:
         SerialAPI.key_down(key)
 
@@ -624,6 +681,8 @@ def key_up(key):
         ArduinoAPI.key_up(key)
     elif state.active_backend == "SendInput":
         SendInputAPI.key_up(key)
+    elif state.active_backend == "Ferrum":
+        FerrumAPI.key_up(key)
     else:
         SerialAPI.key_up(key)
 
@@ -647,6 +706,8 @@ def key_press(key):
         ArduinoAPI.key_press(key)
     elif state.active_backend == "SendInput":
         SendInputAPI.key_press(key)
+    elif state.active_backend == "Ferrum":
+        FerrumAPI.key_press(key)
     else:
         SerialAPI.key_press(key)
 
@@ -660,6 +721,8 @@ def mask_key(key):
         NetAPI.mask_key(key)
     elif state.active_backend == "DHZ":
         DHZAPI.mask_key(key)
+    elif state.active_backend == "Ferrum":
+        FerrumAPI.mask_key(key)
 
 
 def unmask_key(key):
@@ -671,6 +734,8 @@ def unmask_key(key):
         NetAPI.unmask_key(key)
     elif state.active_backend == "DHZ":
         DHZAPI.unmask_key(key)
+    elif state.active_backend == "Ferrum":
+        FerrumAPI.unmask_key(key)
 
 
 def unmask_all_keys():
@@ -682,6 +747,8 @@ def unmask_all_keys():
         NetAPI.unmask_all_keys()
     elif state.active_backend == "DHZ":
         DHZAPI.unmask_all_keys()
+    elif state.active_backend == "Ferrum":
+        FerrumAPI.unmask_all_keys()
 
 
 def switch_to_4m():
@@ -705,6 +772,8 @@ def test_move():
         ArduinoAPI.move(100, 100)
     elif state.active_backend == "SendInput":
         SendInputAPI.move(100, 100)
+    elif state.active_backend == "Ferrum":
+        FerrumAPI.test_move()
     else:
         SerialAPI.test_move()
 
@@ -840,6 +909,8 @@ class Mouse:
             ArduinoAPI.move(x, y)
         elif state.active_backend == "SendInput":
             SendInputAPI.move(x, y)
+        elif state.active_backend == "Ferrum":
+            FerrumAPI.move(x, y)
         else:
             SerialAPI.move(x, y)
 
@@ -860,6 +931,8 @@ class Mouse:
             ArduinoAPI.move_bezier(x, y, segments, ctrl_x, ctrl_y)
         elif state.active_backend == "SendInput":
             SendInputAPI.move_bezier(x, y, segments, ctrl_x, ctrl_y)
+        elif state.active_backend == "Ferrum":
+            FerrumAPI.move_bezier(x, y, segments, ctrl_x, ctrl_y)
         else:
             SerialAPI.move_bezier(x, y, segments, ctrl_x, ctrl_y)
 
@@ -887,6 +960,9 @@ class Mouse:
         elif state.active_backend == "SendInput":
             SendInputAPI.left(1)
             SendInputAPI.left(0)
+        elif state.active_backend == "Ferrum":
+            FerrumAPI.left(1)
+            FerrumAPI.left(0)
         else:
             SerialAPI.left(1)
             SerialAPI.left(0)
@@ -909,6 +985,8 @@ class Mouse:
             ArduinoAPI.left(1)
         elif state.active_backend == "SendInput":
             SendInputAPI.left(1)
+        elif state.active_backend == "Ferrum":
+            FerrumAPI.left(1)
         else:
             SerialAPI.left(1)
         log_press("Mouse.press()")
@@ -930,6 +1008,8 @@ class Mouse:
             ArduinoAPI.left(0)
         elif state.active_backend == "SendInput":
             SendInputAPI.left(0)
+        elif state.active_backend == "Ferrum":
+            FerrumAPI.left(0)
         else:
             SerialAPI.left(0)
         log_release("Mouse.release()")
