@@ -108,6 +108,18 @@ def _boxes_overlap(r1, r2):
     return (x1 < x2 + w2 and x1 + w1 > x2) and (y1 < y2 + h2 and y1 + h1 > y2)
 
 
+def _intersection_area(r1, r2):
+    x1, y1, w1, h1 = r1
+    x2, y2, w2, h2 = r2
+    x_left = max(x1, x2)
+    y_top = max(y1, y2)
+    x_right = min(x1 + w1, x2 + w2)
+    y_bottom = min(y1 + h1, y2 + h2)
+    if x_right <= x_left or y_bottom <= y_top:
+        return 0
+    return (x_right - x_left) * (y_bottom - y_top)
+
+
 def _overlap_len(a0, a1, b0, b1):
     return max(0, min(a1, b1) - max(a0, b0))
 
@@ -185,6 +197,54 @@ def merge_close_rects(rects, centers, dist_threshold=None):
     merged_centers = [merged_centers[idx] for idx in sort_idx]
 
     return merged, merged_centers
+
+
+def filter_duplicate_rects(rects):
+    """Remove near-duplicate detections that commonly appear on the same target."""
+    if not rects:
+        return []
+
+    filtered = []
+    for rect in rects:
+        is_duplicate = False
+        area = max(1, _bbox_area(rect))
+        cx = rect[0] + rect[2] // 2
+        cy = rect[1] + rect[3] // 2
+
+        for kept in filtered:
+            kept_area = max(1, _bbox_area(kept))
+            inter = _intersection_area(rect, kept)
+
+            union = area + kept_area - inter
+            iou = inter / max(union, 1)
+            overlap_small = inter / max(1, min(area, kept_area))
+
+            kcx = kept[0] + kept[2] // 2
+            kcy = kept[1] + kept[3] // 2
+            center_dist = float(np.hypot(cx - kcx, cy - kcy))
+            min_dim = min(rect[2], rect[3], kept[2], kept[3])
+            area_ratio = min(area, kept_area) / max(area, kept_area)
+
+            close_parallel = (
+                _overlap_len(rect[0], rect[0] + rect[2], kept[0], kept[0] + kept[2])
+                >= 0.55 * min(rect[2], kept[2])
+            ) and (
+                _overlap_len(rect[1], rect[1] + rect[3], kept[1], kept[1] + kept[3])
+                >= 0.55 * min(rect[3], kept[3])
+            )
+
+            if iou >= 0.35 or overlap_small >= 0.75:
+                is_duplicate = True
+                break
+
+            if area_ratio >= 0.60 and center_dist <= max(4.0, 0.35 * float(min_dim)) and close_parallel:
+                is_duplicate = True
+                break
+
+        if not is_duplicate:
+            filtered.append(rect)
+
+    return filtered
 
 
 def triggerbot_detect(model, roi):
@@ -316,9 +376,23 @@ def perform_detection(model, image):
     if not rects and cv2.countNonZero(raw_mask) > 0:
         raw_contours, _ = cv2.findContours(raw_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         loose_min_area = max(20, int(min_bbox_area * 0.5))
+        loose_min_contour_area = max(10.0, float(min_contour_area) * 0.60)
+        loose_min_fill_ratio = max(0.06, float(min_fill_ratio) * 0.60)
         for c in raw_contours:
             x, y, w, h = cv2.boundingRect(c)
-            if int(w) * int(h) < loose_min_area:
+            bbox_area = int(w) * int(h)
+            contour_area = float(cv2.contourArea(c))
+            if bbox_area < loose_min_area:
+                continue
+            if contour_area < loose_min_contour_area:
+                continue
+            if int(w) < min_w or int(h) < min_h:
+                continue
+            aspect = float(w) / max(float(h), 1.0)
+            if aspect < min_aspect or aspect > max_aspect:
+                continue
+            fill_ratio = contour_area / max(float(bbox_area), 1.0)
+            if fill_ratio < loose_min_fill_ratio:
                 continue
             cx, cy = x + w // 2, y + h // 2
             rects.append((x, y, w, h))
@@ -332,6 +406,7 @@ def perform_detection(model, image):
     centers = [rc[1] for rc in rects_centers]
 
     merged_rects, _ = merge_close_rects(rects, centers)
+    merged_rects = filter_duplicate_rects(merged_rects)
     return [{"class": "player", "bbox": r, "confidence": 1.0} for r in merged_rects], mask
 
 
