@@ -2790,6 +2790,35 @@ class ViewerApp(ctk.CTk):
                 lambda v: self._on_rgb_custom_changed("rgb_custom_b", v),
             )
 
+            # Color preview frame
+            preview_frame = ctk.CTkFrame(self.custom_rgb_section, fg_color="transparent")
+            preview_frame.pack(fill="x", pady=(10, 5))
+            
+            ctk.CTkLabel(
+                preview_frame,
+                text="Color Preview",
+                font=FONT_MAIN,
+                text_color=COLOR_TEXT
+            ).pack(side="left")
+            
+            # Calculate initial RGB color hex
+            r = max(0, min(255, int(getattr(config, "rgb_custom_r", 161))))
+            g = max(0, min(255, int(getattr(config, "rgb_custom_g", 69))))
+            b = max(0, min(255, int(getattr(config, "rgb_custom_b", 163))))
+            initial_color_hex = f"#{r:02x}{g:02x}{b:02x}"
+            
+            # Color preview box
+            self.rgb_color_preview = ctk.CTkFrame(
+                preview_frame,
+                width=100,
+                height=30,
+                corner_radius=4,
+                fg_color=initial_color_hex,
+                border_width=1,
+                border_color=COLOR_BORDER
+            )
+            self.rgb_color_preview.pack(side="right", padx=(10, 0))
+
             self._add_range_slider_in_frame(
                 sec_rgb,
                 "Delay Range (s)",
@@ -6172,6 +6201,22 @@ class ViewerApp(ctk.CTk):
                 if self.custom_rgb_container.winfo_ismapped():
                     self.custom_rgb_container.pack_forget()
     
+    def _get_rgb_color_hex(self):
+        """Get current RGB color as hex string."""
+        r = max(0, min(255, int(getattr(config, "rgb_custom_r", 161))))
+        g = max(0, min(255, int(getattr(config, "rgb_custom_g", 69))))
+        b = max(0, min(255, int(getattr(config, "rgb_custom_b", 163))))
+        return f"#{r:02x}{g:02x}{b:02x}"
+    
+    def _update_rgb_color_preview(self):
+        """Update RGB color preview box."""
+        if hasattr(self, "rgb_color_preview"):
+            try:
+                color_hex = self._get_rgb_color_hex()
+                self.rgb_color_preview.configure(fg_color=color_hex)
+            except Exception as e:
+                log_print(f"[UI] Failed to update RGB color preview: {e}")
+    
     def _on_rgb_custom_changed(self, key, val):
         """Custom RGB 值改變時的回調"""
         setattr(config, key, int(val))
@@ -6179,6 +6224,8 @@ class ViewerApp(ctk.CTk):
         setattr(config, key, max(0, min(255, int(val))))
         if hasattr(self, "tracker"):
             self.tracker.rgb_color_profile = config.rgb_color_profile
+        # Update color preview
+        self._update_rgb_color_preview()
         log_print(f"[UI] Custom RGB updated: {key} = {int(val)}")
     
     def _open_hsv_preview(self):
