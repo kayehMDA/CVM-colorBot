@@ -27,8 +27,9 @@ ENV/
 # config.json - now tracked in repository
 configs/*
 !configs/default.json
-docs/
-!docs/CVM-docs-main/
+docs/*
+!docs/CVM-docs-main
+docs/CVM-docs-main/*
 !docs/CVM-docs-main/**
 *.log
 *.tmp
