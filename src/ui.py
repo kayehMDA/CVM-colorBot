@@ -6847,13 +6847,13 @@ class UpdateDialog(ctk.CTkToplevel):
         self.update_info = update_info if isinstance(update_info, dict) else {}
 
         self.title("Update Available")
-        self.geometry("520x380")
+        self.geometry("580x380")
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
 
         self.update_idletasks()
-        x = parent.winfo_x() + max(0, (parent.winfo_width() - 520) // 2)
+        x = parent.winfo_x() + max(0, (parent.winfo_width() - 580) // 2)
         y = parent.winfo_y() + max(0, (parent.winfo_height() - 380) // 2)
         self.geometry(f"+{x}+{y}")
 
@@ -6863,8 +6863,59 @@ class UpdateDialog(ctk.CTkToplevel):
         for key in ("notes", "changelog", "description", "message"):
             value = self.update_info.get(key)
             if isinstance(value, str) and value.strip():
-                return value.strip()
+                return self._format_text(value.strip())
         return "A new version is available."
+    
+    def _format_text(self, text: str) -> str:
+        """Format update text with proper line breaks and spacing."""
+        if not text:
+            return text
+        
+        # Split by lines first
+        lines = text.split('\n')
+        formatted_lines = []
+        prev_was_version_header = False
+        
+        for i, line in enumerate(lines):
+            original_line = line
+            line = line.strip()
+            
+            if not line:
+                # Preserve intentional empty lines, but skip if previous was already empty
+                if formatted_lines and formatted_lines[-1]:
+                    formatted_lines.append('')
+                continue
+            
+            # Check if this line is a version header
+            # Patterns: **Version X.X.X:**, Version X.X.X:, **vX.X.X:**, etc.
+            is_version_header = (
+                ('**Version' in line and ':**' in line) or
+                (line.startswith('Version') and ':' in line and any(c.isdigit() for c in line)) or
+                ('**v' in line and ':**' in line) or
+                (line.startswith('v') and ':' in line and any(c.isdigit() for c in line))
+            )
+            
+            # Add spacing before version headers (except the first one)
+            if is_version_header:
+                if formatted_lines and formatted_lines[-1] and not prev_was_version_header:
+                    formatted_lines.append('')  # Add empty line before version header
+                prev_was_version_header = True
+            else:
+                prev_was_version_header = False
+            
+            # Remove markdown bold markers for cleaner display
+            formatted_line = line.replace('**', '')
+            
+            formatted_lines.append(formatted_line)
+        
+        # Join with newlines
+        result = '\n'.join(formatted_lines)
+        
+        # Clean up excessive empty lines (max 2 consecutive empty lines)
+        while '\n\n\n' in result:
+            result = result.replace('\n\n\n', '\n\n')
+        
+        return result.strip()
 
     def _pick_url(self):
         for key in ("download_url", "release_url", "url"):
@@ -6891,9 +6942,13 @@ class UpdateDialog(ctk.CTkToplevel):
             border_width=0,
             corner_radius=8,
             height=220,
+            wrap="word",  # Enable word wrapping
         )
         notes_box.pack(fill="both", expand=True, padx=20, pady=(0, 12))
-        notes_box.insert("1.0", self._pick_text())
+        
+        # Insert formatted text with proper spacing
+        formatted_text = self._pick_text()
+        notes_box.insert("1.0", formatted_text)
         notes_box.configure(state="disabled")
 
         btn_row = ctk.CTkFrame(frame, fg_color="transparent")
@@ -6937,15 +6992,29 @@ class UpdateDialog(ctk.CTkToplevel):
 
         url = self._pick_url()
         if url:
+            # Primary action button - Download Update
+            ctk.CTkButton(
+                btn_row,
+                text="Download Update",
+                command=lambda: self._open_url(url),
+                fg_color=COLOR_ACCENT,
+                hover_color=COLOR_ACCENT_HOVER,
+                text_color=COLOR_BG,
+                width=140,
+            ).pack(side="right")
+            
+            # Secondary action button - Open Release Page
             ctk.CTkButton(
                 btn_row,
                 text="Open Release",
                 command=lambda: self._open_url(url),
-                fg_color=COLOR_TEXT,
-                hover_color=COLOR_ACCENT_HOVER,
-                text_color=COLOR_BG,
+                fg_color="transparent",
+                border_width=1,
+                border_color=COLOR_BORDER,
+                hover_color=COLOR_SURFACE,
+                text_color=COLOR_TEXT,
                 width=120,
-            ).pack(side="right")
+            ).pack(side="right", padx=(10, 0))
 
     def _on_skip(self):
         try:
