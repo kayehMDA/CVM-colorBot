@@ -24,23 +24,53 @@ from src.utils.updater import get_update_checker
 from src.ui_hsv_preview import HsvPreviewWindow
 
 # --- Theme constants (霓虹暗色主題 + Neon dark inspired by reference) ---
-COLOR_BG = "#040B16"          # 應用背景 App background
-COLOR_SIDEBAR = "#030A14"     # 側欄背景 Sidebar background
-COLOR_SURFACE = "#061325"     # 面板/輸入背景 Panels/inputs background
-COLOR_ACCENT = "#00FF41"      # 霓虹綠強調色 Neon green accent
-COLOR_ACCENT_HOVER = "#45FF7A"
-COLOR_TEXT = "#B9D8FF"        # 主文字 Primary text (cold blue-white)
-COLOR_TEXT_DIM = "#5F7FA8"    # 次要文字 Secondary text
-COLOR_BORDER = "#0B7A2B"      # 綠色邊框 Green border
-COLOR_DANGER = "#FF4D6D"
-COLOR_SUCCESS = "#00FF7F"
-COLOR_NAV_ACTIVE_BG = "#0A2315"
-COLOR_NAV_HOVER_BG = "#0A1A30"
-COLOR_MENU_GHOST = "#3A506E"
+THEME_PRESETS = {
+    "neon": {
+        "COLOR_BG": "#040B16",
+        "COLOR_SIDEBAR": "#030A14",
+        "COLOR_SURFACE": "#061325",
+        "COLOR_ACCENT": "#00FF41",
+        "COLOR_ACCENT_HOVER": "#45FF7A",
+        "COLOR_TEXT": "#B9D8FF",
+        "COLOR_TEXT_DIM": "#5F7FA8",
+        "COLOR_BORDER": "#0B7A2B",
+        "COLOR_DANGER": "#FF4D6D",
+        "COLOR_SUCCESS": "#00FF7F",
+        "COLOR_NAV_ACTIVE_BG": "#0A2315",
+        "COLOR_NAV_HOVER_BG": "#0A1A30",
+        "COLOR_MENU_GHOST": "#3A506E",
+        "FONT_MAIN": ("Consolas", 11),
+        "FONT_BOLD": ("Consolas", 11, "bold"),
+        "FONT_TITLE": ("Consolas", 18, "bold"),
+    },
+    "classic": {
+        "COLOR_BG": "#121212",
+        "COLOR_SIDEBAR": "#121212",
+        "COLOR_SURFACE": "#1E1E1E",
+        "COLOR_ACCENT": "#FFFFFF",
+        "COLOR_ACCENT_HOVER": "#E0E0E0",
+        "COLOR_TEXT": "#E0E0E0",
+        "COLOR_TEXT_DIM": "#757575",
+        "COLOR_BORDER": "#2C2C2C",
+        "COLOR_DANGER": "#CF6679",
+        "COLOR_SUCCESS": "#4CAF50",
+        "COLOR_NAV_ACTIVE_BG": "#2A2A2A",
+        "COLOR_NAV_HOVER_BG": "#262626",
+        "COLOR_MENU_GHOST": "#8A8A8A",
+        "FONT_MAIN": ("Roboto", 11),
+        "FONT_BOLD": ("Roboto", 11, "bold"),
+        "FONT_TITLE": ("Roboto", 18, "bold"),
+    },
+}
 
-FONT_MAIN = ("Consolas", 11)
-FONT_BOLD = ("Consolas", 11, "bold")
-FONT_TITLE = ("Consolas", 18, "bold")
+
+def _apply_theme_preset(theme_name):
+    theme = THEME_PRESETS.get(theme_name, THEME_PRESETS["neon"])
+    for key, value in theme.items():
+        globals()[key] = value
+
+
+_apply_theme_preset("neon")
 
 CVM_CONFIG_COMMENT_KEY = "_comment"
 CVM_CONFIG_COMMENT_VALUE = "This is CVM colorBot config."
@@ -178,6 +208,8 @@ class ViewerApp(ctk.CTk):
         # --- Window setup ---
         self.title("CVM colorBot")
         self.geometry("1280x950")
+        self._legacy_ui_mode = bool(getattr(config, "legacy_ui_mode", False))
+        _apply_theme_preset("classic" if self._legacy_ui_mode else "neon")
         
         # 注意: 若啟用 overrideredirect(True)，系統框線與 taskbar 行為可能不同
         # If you need normal window decorations, keep it commented out.
@@ -392,54 +424,73 @@ class ViewerApp(ctk.CTk):
 
     def _build_sidebar(self):
         """建立側邊欄：navigation + status widgets。"""
-        self.sidebar = ctk.CTkFrame(self, width=250, fg_color=COLOR_SIDEBAR, corner_radius=0)
+        sidebar_width = 165 if self._legacy_ui_mode else 250
+        self.sidebar = ctk.CTkFrame(self, width=sidebar_width, fg_color=COLOR_SIDEBAR, corner_radius=0)
         self.sidebar.grid(row=1, column=0, sticky="ns")
         self.sidebar.grid_propagate(False)
         
         # 分隔線 Separator
-        sep = ctk.CTkFrame(self.sidebar, width=1, fg_color="#10263F")
+        sep_color = COLOR_BORDER if self._legacy_ui_mode else "#10263F"
+        sep = ctk.CTkFrame(self.sidebar, width=1, fg_color=sep_color)
         sep.pack(side="right", fill="y")
 
-        brand = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        brand.pack(fill="x", padx=16, pady=(14, 10))
-        ctk.CTkLabel(
-            brand,
-            text="CVM",
-            font=("Consolas", 30, "bold"),
-            text_color=COLOR_ACCENT,
-            anchor="w",
-        ).pack(anchor="w")
-        ctk.CTkLabel(
-            brand,
-            text="colorBot",
-            font=("Consolas", 11),
-            text_color=COLOR_TEXT_DIM,
-            anchor="w",
-        ).pack(anchor="w", pady=(0, 0))
-
-        ctk.CTkFrame(self.sidebar, height=1, fg_color="#10263F").pack(fill="x", padx=0, pady=(0, 10))
+        if not self._legacy_ui_mode:
+            brand = ctk.CTkFrame(self.sidebar, fg_color="transparent")
+            brand.pack(fill="x", padx=16, pady=(14, 10))
+            ctk.CTkLabel(
+                brand,
+                text="CVM",
+                font=("Consolas", 30, "bold"),
+                text_color=COLOR_ACCENT,
+                anchor="w",
+            ).pack(anchor="w")
+            ctk.CTkLabel(
+                brand,
+                text="colorBot",
+                font=("Consolas", 11),
+                text_color=COLOR_TEXT_DIM,
+                anchor="w",
+            ).pack(anchor="w", pady=(0, 0))
+            ctk.CTkFrame(self.sidebar, height=1, fg_color="#10263F").pack(fill="x", padx=0, pady=(0, 10))
 
         # 導覽容器 Navigation container
         nav_container = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        nav_container.pack(fill="x", padx=12, pady=(0, 10))
+        nav_padx = 20 if self._legacy_ui_mode else 12
+        nav_pady = 20 if self._legacy_ui_mode else (0, 10)
+        nav_container.pack(fill="x", padx=nav_padx, pady=nav_pady)
         
         self.nav_buttons = {}
         self.nav_indicators = {}
 
-        # 頂層項目 Top-level item
-        self._add_nav_item(nav_container, "General", self._show_general_tab, icon=">")
+        if self._legacy_ui_mode:
+            tabs = [
+                ("General", self._show_general_tab),
+                ("Main Aimbot", self._show_aimbot_tab),
+                ("Sec Aimbot", self._show_sec_aimbot_tab),
+                ("Trigger", self._show_tb_tab),
+                ("RCS", self._show_rcs_tab),
+                ("Config", self._show_config_tab),
+                ("Debug", self._show_debug_tab),
+            ]
+            for text, cmd in tabs:
+                btn = self._create_nav_btn_legacy(nav_container, text, cmd)
+                self.nav_buttons[text] = btn
+                btn.pack(pady=2, fill="x")
+        else:
+            # 頂層項目 Top-level item
+            self._add_nav_item(nav_container, "General", self._show_general_tab, icon=">")
 
-        self._add_sidebar_group_label(nav_container, "Aimbot")
-        self._add_nav_item(nav_container, "Main Aimbot", self._show_aimbot_tab, icon=">")
-        self._add_nav_item(nav_container, "Sec Aimbot", self._show_sec_aimbot_tab, icon=">")
-        self._add_nav_item(nav_container, "RCS", self._show_rcs_tab, icon=">")
+            self._add_sidebar_group_label(nav_container, "Aimbot")
+            self._add_nav_item(nav_container, "Main Aimbot", self._show_aimbot_tab, icon=">")
+            self._add_nav_item(nav_container, "Sec Aimbot", self._show_sec_aimbot_tab, icon=">")
+            self._add_nav_item(nav_container, "RCS", self._show_rcs_tab, icon=">")
 
-        self._add_sidebar_group_label(nav_container, "Trigger")
-        self._add_nav_item(nav_container, "Trigger", self._show_tb_tab, icon=">")
+            self._add_sidebar_group_label(nav_container, "Trigger")
+            self._add_nav_item(nav_container, "Trigger", self._show_tb_tab, icon=">")
 
-        self._add_sidebar_group_label(nav_container, "Miscellaneous")
-        self._add_nav_item(nav_container, "Config", self._show_config_tab, icon=">")
-        self._add_nav_item(nav_container, "Debug", self._show_debug_tab, icon=">")
+            self._add_sidebar_group_label(nav_container, "Miscellaneous")
+            self._add_nav_item(nav_container, "Config", self._show_config_tab, icon=">")
+            self._add_nav_item(nav_container, "Debug", self._show_debug_tab, icon=">")
 
         self._set_nav_active(self._active_tab_name)
             
@@ -461,6 +512,20 @@ class ViewerApp(ctk.CTk):
             corner_radius=8
         )
         self.theme_btn.pack(fill="x", pady=5)
+
+        self.ui_style_btn = ctk.CTkButton(
+            bottom_frame,
+            text=f"UI Style: {'Classic' if self._legacy_ui_mode else 'Neon'}",
+            fg_color=COLOR_SURFACE,
+            text_color=COLOR_TEXT_DIM,
+            hover_color=COLOR_SURFACE,
+            anchor="w",
+            height=25,
+            font=("Roboto", 10),
+            command=self._toggle_ui_style,
+            corner_radius=8,
+        )
+        self.ui_style_btn.pack(fill="x", pady=(0, 5))
         
         # 效能資訊 Performance labels
         self.fps_label = ctk.CTkLabel(
@@ -584,6 +649,22 @@ class ViewerApp(ctk.CTk):
             border_color="#0E223A"
         )
 
+    def _create_nav_btn_legacy(self, parent, text, command):
+        return ctk.CTkButton(
+            parent,
+            text=text,
+            height=32,
+            fg_color="transparent",
+            text_color=COLOR_TEXT,
+            hover_color=COLOR_SURFACE,
+            anchor="w",
+            font=FONT_MAIN,
+            command=lambda: self._handle_nav_click(text, command),
+            corner_radius=6,
+            border_width=1,
+            border_color=COLOR_BORDER,
+        )
+
     def _add_sidebar_group_label(self, parent, text):
         ctk.CTkLabel(
             parent,
@@ -624,7 +705,9 @@ class ViewerApp(ctk.CTk):
                 if indicator is not None:
                     indicator.configure(fg_color=COLOR_ACCENT)
             else:
-                btn.configure(text_color=COLOR_TEXT, fg_color="#081425", border_color="#0E223A")
+                inactive_bg = "transparent" if self._legacy_ui_mode else "#081425"
+                inactive_border = COLOR_BORDER if self._legacy_ui_mode else "#0E223A"
+                btn.configure(text_color=COLOR_TEXT, fg_color=inactive_bg, border_color=inactive_border)
                 if indicator is not None:
                     indicator.configure(fg_color="transparent")
 
@@ -650,6 +733,40 @@ class ViewerApp(ctk.CTk):
         else:
             ctk.set_appearance_mode("Dark")
             self.theme_btn.configure(text="Dark Mode")
+
+    def _toggle_ui_style(self):
+        self._legacy_ui_mode = not self._legacy_ui_mode
+        config.legacy_ui_mode = bool(self._legacy_ui_mode)
+        self._rebuild_layout_for_ui_style()
+
+    def _rebuild_layout_for_ui_style(self):
+        tab_name = str(getattr(self, "_active_tab_name", "General"))
+        self._cancel_binding_capture()
+
+        for attr in ("title_bar", "sidebar", "content_frame"):
+            widget = getattr(self, attr, None)
+            if widget is not None:
+                try:
+                    widget.destroy()
+                except Exception:
+                    pass
+
+        _apply_theme_preset("classic" if self._legacy_ui_mode else "neon")
+        self.configure(fg_color=COLOR_BG)
+        self._build_layout()
+
+        tab_map = {
+            "General": self._show_general_tab,
+            "Main Aimbot": self._show_aimbot_tab,
+            "Sec Aimbot": self._show_sec_aimbot_tab,
+            "Trigger": self._show_tb_tab,
+            "RCS": self._show_rcs_tab,
+            "Config": self._show_config_tab,
+            "Debug": self._show_debug_tab,
+        }
+        tab_fn = tab_map.get(tab_name)
+        if tab_fn is not None and tab_name != "General":
+            self._handle_nav_click(tab_name, tab_fn)
 
     # --- 各分頁內容 Tabs ---
 
