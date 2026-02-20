@@ -81,11 +81,23 @@ def _reset_wait_state(state_dict):
 
 def _resolve_rgb_profile():
     profile_key = str(getattr(config, "rgb_color_profile", "purple")).strip().lower()
-    if profile_key not in RGB_PRESETS:
+    if profile_key == "custom":
+        # Use custom RGB values from config
+        custom_r = max(0, min(255, int(getattr(config, "rgb_custom_r", 161))))
+        custom_g = max(0, min(255, int(getattr(config, "rgb_custom_g", 69))))
+        custom_b = max(0, min(255, int(getattr(config, "rgb_custom_b", 163))))
+        # Use default tolerance similar to purple preset
+        tolerance = 30
+        return profile_key, (custom_r, custom_g, custom_b), tolerance
+    elif profile_key not in RGB_PRESETS:
         profile_key = "purple"
-    preset = RGB_PRESETS[profile_key]
-    tolerance = int(preset["tol_max"])
-    return profile_key, tuple(preset["rgb"]), tolerance
+        preset = RGB_PRESETS[profile_key]
+        tolerance = int(preset["tol_max"])
+        return profile_key, tuple(preset["rgb"]), tolerance
+    else:
+        preset = RGB_PRESETS[profile_key]
+        tolerance = int(preset["tol_max"])
+        return profile_key, tuple(preset["rgb"]), tolerance
 
 
 def _create_rgb_mask(roi_bgr, target_rgb, tolerance):
