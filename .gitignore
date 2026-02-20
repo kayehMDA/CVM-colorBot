@@ -28,10 +28,7 @@ ENV/
 configs/*
 !configs/default.json
 !configs/default_cvm.json
-docs/*
-!docs/CVM-docs-main/
-docs/CVM-docs-main/*
-!docs/CVM-docs-main/**
+docs/
 *.log
 *.tmp
 *.bak
