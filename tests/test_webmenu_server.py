@@ -192,6 +192,47 @@ class WebMenuServerTests(unittest.TestCase):
         self.assertTrue(cfg.enablercs)
         self.assertEqual(cfg.rcs_pull_speed, 12)
 
+        ok, err = server._patch_main_aimbot(
+            {"anti_smoke_enabled": True, "aimbot_activation_type": "toggle", "selected_mouse_button": 3}
+        )
+        self.assertTrue(ok, err)
+        self.assertTrue(cfg.anti_smoke_enabled)
+        self.assertEqual(cfg.aimbot_activation_type, "toggle")
+        self.assertEqual(cfg.selected_mouse_button, 3)
+
+        ok, err = server._patch_trigger(
+            {
+                "tbhold_min": 20,
+                "tbhold_max": 40,
+                "rgb_color_profile": "custom",
+                "trigger_activation_type": "toggle",
+                "selected_tb_btn": 4,
+            }
+        )
+        self.assertTrue(ok, err)
+        self.assertEqual(float(cfg.tbhold_min), 20.0)
+        self.assertEqual(float(cfg.tbhold_max), 40.0)
+        self.assertEqual(cfg.rgb_color_profile, "custom")
+        self.assertEqual(cfg.trigger_activation_type, "toggle")
+        self.assertEqual(cfg.selected_tb_btn, 4)
+
+        ok, err = server._patch_trigger({"tbhold_min": 80, "tbhold_max": 20})
+        self.assertFalse(ok)
+        self.assertIn("tbhold_min must be <=", err)
+
+    def test_patch_full_state(self):
+        cfg, tracker = _build_dummy()
+        server = WebMenuServer(cfg, tracker, _DummyCapture(), version_provider=lambda: "1.0.0")
+
+        ok, err = server._patch_full({"color": "red", "normal_x_speed": 11.5})
+        self.assertTrue(ok, err)
+        self.assertEqual(cfg.color, "red")
+        self.assertEqual(float(cfg.normal_x_speed), 11.5)
+
+        ok, err = server._patch_full({"unknown_option": 1})
+        self.assertFalse(ok)
+        self.assertIn("unknown fields", err)
+
     def test_configs_save_and_load(self):
         cfg, tracker = _build_dummy()
         server = WebMenuServer(cfg, tracker, _DummyCapture(), version_provider=lambda: "1.0.0")

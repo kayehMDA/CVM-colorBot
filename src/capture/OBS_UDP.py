@@ -64,6 +64,7 @@ class OBS_UDP_Receiver:
         self.frame_lock = threading.Lock()
         self.frame_callback = None
         self.frame_callback_async: Optional[Callable[[np.ndarray], Awaitable[None]]] = None
+        self.last_frame_time = 0.0
         
         # Performance monitoring
         self.fps_counter = 0
@@ -223,6 +224,9 @@ class OBS_UDP_Receiver:
                 await asyncio.sleep(0.1)  # Give transport time to close
                 self._transport = None
             self._protocol = None
+            self.last_frame_time = 0.0
+            with self.frame_lock:
+                self.current_frame = None
             
             # Clean up loop if no longer needed
             if self._loop and self._loop_thread and self._loop_thread.is_alive():
@@ -295,6 +299,7 @@ class OBS_UDP_Receiver:
             # Clear current frame
             with self.frame_lock:
                 self.current_frame = None
+            self.last_frame_time = 0.0
             
             logger.info("Disconnected from UDP stream")
             
@@ -547,6 +552,7 @@ class OBS_UDP_Receiver:
         try:
             with self.frame_lock:
                 self.current_frame = frame.copy()
+            self.last_frame_time = time.monotonic()
             
             # Update decoding FPS counter
             with self.processing_lock:
@@ -610,6 +616,20 @@ class OBS_UDP_Receiver:
         """
         with self.frame_lock:
             return self.current_frame.copy() if self.current_frame is not None else None
+
+    def has_recent_frame(self, max_age_sec: float = 1.5) -> bool:
+        """
+        Return whether at least one frame was received recently.
+        """
+        if not self.is_connected or not self.is_receiving:
+            return False
+        if self.last_frame_time <= 0:
+            return False
+        try:
+            age = time.monotonic() - float(self.last_frame_time)
+        except Exception:
+            return False
+        return age <= max(0.1, float(max_age_sec))
     
     def get_performance_stats(self) -> dict:
         """
@@ -741,4 +761,9 @@ class OBS_UDP_Manager:
     
     def is_stream_active(self) -> bool:
         """Check if stream is active"""
-        return self.is_connected and self.receiver and self.receiver.is_receiving
+        if not self.is_connected or not self.receiver:
+            return False
+        try:
+            return bool(self.receiver.has_recent_frame())
+        except Exception:
+            return bool(self.receiver.is_receiving)

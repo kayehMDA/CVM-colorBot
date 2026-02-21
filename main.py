@@ -1028,8 +1028,10 @@ if __name__ == "__main__":
     app._ensure_webmenu_running = _ensure_webmenu_running
     app._webmenu_server = webmenu_server
 
-    if bool(getattr(config, "webmenu_enabled", False)):
-        _ensure_webmenu_running()
+    # Always start WebMenu together with the desktop app.
+    if not bool(getattr(config, "webmenu_enabled", False)):
+        config.webmenu_enabled = True
+    _ensure_webmenu_running()
 
     def _on_app_close():
         try:

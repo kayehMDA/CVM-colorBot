@@ -2,6 +2,7 @@ from src.utils.debug_logger import log_print
 import numpy as np
 from .ndi import NDIManager
 import cv2
+import time
 
 # 導入 OBS_UDP 模組 (使用 OBS_UDP.py)
 try:
@@ -151,8 +152,11 @@ class CaptureService:
     def connect_udp(self, ip, port):
         """連接 UDP 來源"""
         self.mode = "UDP"
-        self._ip = ip
-        self._port = int(port)
+        self._ip = str(ip).strip()
+        try:
+            self._port = int(str(port).strip())
+        except Exception:
+            return False, f"Invalid UDP port: {port!r}"
         
         if not HAS_UDP:
             return False, "UDP module not loaded (OBS_UDP.py missing or failed to import)"
@@ -162,10 +166,29 @@ class CaptureService:
             
         try:
             success = self.udp_manager.connect(self._ip, self._port, target_fps=0)
-            if success:
-                return True, None
-            else:
+            if not success:
                 return False, "Connection failed - check IP/Port and ensure OBS is streaming"
+
+            # Socket bind can succeed even when no UDP video packets arrive yet.
+            receiver = self.udp_manager.get_receiver()
+            deadline = time.monotonic() + 3.0
+            while time.monotonic() < deadline:
+                if receiver is None:
+                    break
+                try:
+                    if hasattr(receiver, "has_recent_frame"):
+                        if receiver.has_recent_frame(max_age_sec=10.0):
+                            return True, None
+                    else:
+                        frame = receiver.get_current_frame()
+                        if frame is not None and getattr(frame, "size", 0) > 0:
+                            return True, None
+                except Exception:
+                    pass
+                time.sleep(0.05)
+
+            self.udp_manager.disconnect()
+            return False, "UDP connected, but no frame received in 3s. Check OBS stream, IP/Port, and firewall."
         except Exception as e:
             log_print(f"[Capture] UDP connection exception: {e}")
             return False, str(e)
